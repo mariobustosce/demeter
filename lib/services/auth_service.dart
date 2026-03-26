@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
 
 class AuthService {
@@ -58,6 +59,59 @@ class AuthService {
       return false;
     } catch (e) {
       print("Error haciendo login: $e");
+      return false;
+    }
+  }
+
+  // Login con Google
+  Future<bool> loginWithGoogle() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
+        serverClientId: '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      );
+
+      // Usado para limpiar la sesión previa en caso de ser necesario
+      await googleSignIn.signOut();
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        return false; // El usuario canceló
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final String? idToken = googleAuth.idToken ?? googleAuth.accessToken;
+
+      if (idToken == null) {
+        print("No se pudo obtener el idToken de Google");
+        return false;
+      }
+
+      // Enviar token a nuestro backend de Laravel
+      final response = await http.post(
+        Uri.parse('$_baseUrl/login/google'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'token': idToken,
+          'device_name': 'flutter_demeter_app',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'] ?? data['access_token'];
+        
+        if (token != null) {
+          await _saveToken(token);
+          return true;
+        }
+      } else {
+        print("Error del backend al hacer login con Google: ${response.statusCode} - ${response.body}");
+      }
+      return false;
+    } catch (e) {
+      print("Error en loginWithGoogle: $e");
       return false;
     }
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/home_screen_v2.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(), // Esta verifica si hay token
         '/login': (context) => LoginScreen(),
-        '/home': (context) => HomeScreen(),
+        '/home': (context) => const HomeScreenV2(),
       },
     );
   }
