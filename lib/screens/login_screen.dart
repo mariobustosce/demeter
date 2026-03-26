@@ -12,6 +12,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   void _handleLogin() async {
     setState(() => _isLoading = true);
@@ -39,6 +40,33 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Credenciales incorrectas"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleGoogleLogin() async {
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    bool success = await _authService.loginWithGoogle();
+
+    setState(() {
+      _isGoogleLoading = false;
+    });
+
+    if (success) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al iniciar sesión con Google'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -234,9 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
                     // --- BOTÓN GOOGLE (Estilo Celestial) ---
                     OutlinedButton(
-                      onPressed: () {
-                        // Acción para login con Google
-                      },
+                      onPressed: _isLoading || _isGoogleLoading ? null : _handleGoogleLogin,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: BorderSide(color: accentCyan.withOpacity(0.4)),
@@ -245,24 +271,26 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SvgPicture.network(
-                            'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                            height: 20,
-                            width: 20,
+                      child: _isGoogleLoading
+                        ? const CircularProgressIndicator(color: accentCyan)
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.network(
+                                'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                                height: 20,
+                                width: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                "Iniciar sesión con Google",
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            "Iniciar sesión con Google",
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                     
                     const SizedBox(height: 20),
