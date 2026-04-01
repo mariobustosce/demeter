@@ -26,7 +26,7 @@ class SkyService {
     return await Geolocator.getCurrentPosition();
   }
 
-  Future<String?> getMapSvgMobile({
+  Future<Map<String, dynamic>?> getMapApiData({
     double? lat,
     double? lng,
     DateTime? date,
@@ -34,8 +34,9 @@ class SkyService {
     try {
       final token = await _authService.getToken();
 
-      double latitude = lat ?? -34.6037;
-      double longitude = lng ?? -58.3816;
+      // Santiago, La Florida, Chile por defecto (Hemisferio Sur)
+      double latitude = lat ?? -33.5227;
+      double longitude = lng ?? -70.5983;
 
       if (lat == null || lng == null) {
         Position? position = await _determinePosition();
@@ -53,7 +54,68 @@ class SkyService {
 
       final queryParams = {
         'lat': latitude.toString(),
-        'lon': longitude.toString(), // usando lon como indica endpoint
+        'lon': longitude.toString(),
+        'date': dateStr,
+        'time': timeStr,
+      };
+
+      final uri = Uri.parse(
+        '$_baseUrl/astronomy/map-api-mobile',
+      ).replace(queryParameters: queryParams);
+
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        print("Error obteniendo datos API (Status ${response.statusCode})");
+        return null;
+      }
+    } catch (e) {
+      print("Error cargando los datos API: $e");
+      return null;
+    }
+  }
+
+  // --- MÉTODOS DE COMPATIBILIDAD (No borrar, se usan en Background y Consultas) ---
+
+  Future<String?> getMapSvgMobile({
+    double? lat,
+    double? lng,
+    DateTime? date,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+
+      // Santiago, La Florida, Chile por defecto (Hemisferio Sur)
+      double latitude = lat ?? -33.5227;
+      double longitude = lng ?? -70.5983;
+
+      if (lat == null || lng == null) {
+        Position? position = await _determinePosition();
+        if (position != null) {
+          latitude = position.latitude;
+          longitude = position.longitude;
+        }
+      }
+
+      final now = date ?? DateTime.now();
+      final dateStr =
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      final timeStr =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+      final queryParams = {
+        'lat': latitude.toString(),
+        'lon': longitude.toString(),
         'date': dateStr,
         'time': timeStr,
       };
@@ -70,28 +132,21 @@ class SkyService {
               if (token != null) 'Authorization': 'Bearer $token',
             },
           )
-          .timeout(
-            const Duration(seconds: 45),
-          );
+          .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
-        // Intenta decodificar como JSON por si el endpoint lo retorna encapsulado (ej: {"svg": "<svg..."})
         try {
           final decoded = json.decode(response.body);
           if (decoded is Map<String, dynamic> && decoded.containsKey('svg')) {
             return decoded['svg'];
           }
         } catch (_) {
-          // Si no es JSON, asume que es un string SVG crudo
           return response.body;
         }
         return response.body;
-      } else {
-        print("Error obteniendo crudo SVG (Status ${response.statusCode})");
-        return null;
       }
+      return null;
     } catch (e) {
-      print("Error cargando el SVG crudo: $e");
       return null;
     }
   }
@@ -101,61 +156,19 @@ class SkyService {
     double? lng,
     DateTime? date,
   }) async {
-    try {
-      final token = await _authService.getToken();
-
-      double latitude = lat ?? -34.6037;
-      double longitude = lng ?? -58.3816;
-
-      if (lat == null || lng == null) {
-        Position? position = await _determinePosition();
-        if (position != null) {
-          latitude = position.latitude;
-          longitude = position.longitude;
-        }
-      }
-
-      final now = date ?? DateTime.now();
-      final dateStr =
-          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-      final timeStr =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-
-      final queryParams = {
-        'lat': latitude.toString(),
-        'lng': longitude.toString(),
-        'date': dateStr,
-        'time': timeStr,
-      };
-
-      final uri = Uri.parse(
-        '$_baseUrl/astronomy/map-svg-mobile',
-      ).replace(queryParameters: queryParams);
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              if (token != null) 'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 45),
-          ); // Tiempo extendido para el pesado SVG
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        print("Error obteniendo SVG (Status ${response.statusCode})");
-        return null;
-      }
-    } catch (e) {
-      print("Error cargando el oráculo: $e");
-      return null;
-    }
+    return getMapApiData(lat: lat, lng: lng, date: date);
   }
+
+  Future<Map<String, dynamic>> getAstralProfile({
+    double? lat,
+    double? lng,
+    DateTime? date,
+  }) async {
+    final data = await getMapApiData(lat: lat, lng: lng, date: date);
+    return data ?? {};
+  }
+
+  // --- FIN MÉTODOS DE COMPATIBILIDAD ---
 
   Future<Map<String, double>?> searchLocation(String query) async {
     try {
@@ -191,78 +204,7 @@ class SkyService {
     return null;
   }
 
-  // Método para obtener datos unificados desde el backend (Laravel)
-  Future<Map<String, dynamic>> getAstralProfile({
-    double? lat,
-    double? lng,
-    DateTime? date,
-  }) async {
-    try {
-      final token = await _authService.getToken();
 
-      double latitude = lat ?? -34.6037;
-      double longitude = lng ?? -58.3816;
-
-      if (lat == null || lng == null) {
-        Position? position = await _determinePosition();
-        if (position != null) {
-          latitude = position.latitude;
-          longitude = position.longitude;
-        }
-      }
-
-      print(
-        "Consultando AstralProfile unificado: Lat $latitude, Lon $longitude",
-      );
-
-      final targetDate = date ?? DateTime.now();
-      final dateStr =
-          "${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
-      final timeStr =
-          "${targetDate.hour.toString().padLeft(2, '0')}:${targetDate.minute.toString().padLeft(2, '0')}";
-
-      final queryParams = {
-        'lat': latitude.toString(),
-        'lng': longitude.toString(),
-        'date': dateStr,
-        'time': timeStr,
-      };
-
-      // Si /astronomy/data dio 404, prueba con /astronomy/profile o verifica tu api.php
-      final uri = Uri.parse(
-        '$_baseUrl/astronomy/data',
-      ).replace(queryParameters: queryParams);
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              if (token != null) 'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        print(
-          "Error en AstralProfile unificado (Status ${response.statusCode})",
-        );
-        // Si el servidor falla, devolvemos mock local para no dejar la pantalla vacía
-        return {
-          'physics': _getMockPhysicsData(targetDate),
-          'planetary': _getMockPlanetaryData(targetDate),
-          'astrology': _generateMockAstroData(targetDate),
-          'is_mock_data': true,
-        };
-      }
-    } catch (e) {
-      print("Error cargando perfil astral unificado: $e");
-      return {};
-    }
-  }
 
   Map<String, dynamic> _getMockPhysicsData(DateTime now) {
     final dateStr =
@@ -293,15 +235,17 @@ class SkyService {
     // Edad de la luna en días
     final moonAge = phaseVal * 29.53;
 
-    // Estación del año (Aproximación Hemisferio Norte, luego se puede ajustar por latitud)
-    String season = "Invierno";
-    if (date.month >= 3 && date.month <= 5) season = "Primavera";
-    if (date.month >= 6 && date.month <= 8) season = "Verano";
-    if (date.month >= 9 && date.month <= 11) season = "Otoño";
-    if (date.month == 3 && date.day < 21) season = "Invierno";
-    if (date.month == 6 && date.day < 21) season = "Primavera";
-    if (date.month == 9 && date.day < 22) season = "Verano";
-    if (date.month == 12 && date.day < 21) season = "Otoño";
+    // Estación del año (Ajustado para Hemisferio Sur)
+    String season = "Verano";
+    if (date.month >= 3 && date.month <= 5) season = "Otoño";
+    if (date.month >= 6 && date.month <= 8) season = "Invierno";
+    if (date.month >= 9 && date.month <= 11) season = "Primavera";
+    
+    // Ajustes por días de equinoccio/solsticio aproximados
+    if (date.month == 3 && date.day < 21) season = "Verano";
+    if (date.month == 6 && date.day < 21) season = "Otoño";
+    if (date.month == 9 && date.day < 22) season = "Invierno";
+    if (date.month == 12 && date.day < 21) season = "Primavera";
 
     return {
       "moonrise":
