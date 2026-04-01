@@ -41,6 +41,7 @@ dependencies:
   async_wallpaper: ^3.1.0
   path_provider: ^2.1.5
   google_sign_in: 6.2.1
+  workmanager: ^0.9.0+3
 
 dev_dependencies:
   flutter_test:
