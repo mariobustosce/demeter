@@ -71,12 +71,12 @@ class CelestialPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Si la data es nula o vacía, dibujamos un fondo degradado por defecto
-    // para que la superficie nunca se quede negra o vacía
+    // 1. SEGURIDAD: Si no hay tamaño, no dibujamos.
     if (size.width <= 0 || size.height <= 0) return;
 
     final rect = Offset.zero & size;
 
+    // 2. FALLBACK DE DATOS: Si no hay datos, dibujamos el fondo para evitar pantalla negra.
     if (data.isEmpty) {
       final nightGradient = Paint()
         ..shader = const LinearGradient(
@@ -87,6 +87,15 @@ class CelestialPainter extends CustomPainter {
       canvas.drawRect(rect, nightGradient);
       return;
     }
+
+    // 3. OPTIMIZACIÓN: Dibujar fondo principal
+    final bgPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: _skyColors.isNotEmpty ? _skyColors : [const Color(0xFF0F172A), const Color(0xFF312E81)],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
 
     // Coordinadas de diseño base
     const double baseWidth = 1080;
@@ -295,9 +304,17 @@ class CelestialPainter extends CustomPainter {
         pSol = (solPosition['progress'] ?? 0.5).toDouble();
       } else if (solPosition.containsKey('azimuth')) {
         double az = (solPosition['azimuth'] ?? 0.0).toDouble();
-        if (az >= 90 && az <= 270) pSol = (az - 90) / 180;
-        else if (az < 90) pSol = 0.0;
-        else pSol = 1.0;
+        
+        // CORRECCIÓN DE MAPEADO:
+        // El arco va de 90° (Izquierda/Este) a 270° (Derecha/Oeste)
+        // Si el Azimut es 180° (Sur), pSol debe ser 0.5 (Centro)
+        if (az >= 90 && az <= 270) {
+          pSol = (az - 90) / 180;
+        } else if (az > 270 || az < 90) {
+          // Si está fuera del rango visible (noche o bajo horizonte)
+          // Lo dejamos en los extremos para que no aparezca en el centro
+          pSol = (az > 270) ? 1.0 : 0.0;
+        }
         pSol = pSol.clamp(0.0, 1.0);
       }
     } 
@@ -310,9 +327,11 @@ class CelestialPainter extends CustomPainter {
         pLuna = (lunaPosition['progress'] ?? 0.3).toDouble();
       } else if (lunaPosition.containsKey('azimuth')) {
         double az = (lunaPosition['azimuth'] ?? 0.0).toDouble();
-        if (az >= 90 && az <= 270) pLuna = (az - 90) / 180;
-        else if (az < 90) pLuna = 0.0;
-        else pLuna = 1.0;
+        if (az >= 90 && az <= 270) {
+          pLuna = (az - 90) / 180;
+        } else {
+          pLuna = (az > 270) ? 1.0 : 0.0;
+        }
         pLuna = pLuna.clamp(0.0, 1.0);
       }
     }
