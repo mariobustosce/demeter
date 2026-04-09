@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "829473466086",
+    "project_id": "windowsdemeter-auth",
+    "storage_bucket": "windowsdemeter-auth.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:829473466086:android:b2f0a1d5c3e4f5g6h7i8j9",
+        "android_client_info": {
+          "package_name": "com.example.demeter"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-DUMMY-KEY-FOR-COMPILATION-ONLY"
+        }
+      ],
+      "oauth_client": [
+        {
+          "client_id": "829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

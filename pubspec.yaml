@@ -38,10 +38,13 @@ dependencies:
   shared_preferences: ^2.5.4
   flutter_svg: ^2.2.4
   geolocator: ^14.0.2
-  async_wallpaper: ^3.1.0
+  async_wallpaper:
+    path: packages/async_wallpaper
   path_provider: ^2.1.5
   google_sign_in: 6.2.1
   workmanager: ^0.9.0+3
+  url_launcher: ^6.3.1
+  flutter_markdown: ^0.7.7+1
 
 dev_dependencies:
   flutter_test:

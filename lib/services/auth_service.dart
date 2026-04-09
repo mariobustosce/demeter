@@ -2,14 +2,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../models/auth_response.dart';
 import '../models/user.dart';
+import 'api_config.dart';
 
 class AuthService {
-  // CONFIGURACIÓN:
-  // Usa "http://10.0.2.2/api" para el Emulador de Android.
-  // Usa tu IP local (ej "http://192.168.1.XX/api") si usas un celular físico.
-  // Usa "http://localhost/api" si lo pruebas en Web o Windows.
-  final String _baseUrl = "https://windowsdemeter.com/api"; 
+  final String _baseUrl = ApiConfig.baseUrl;
 
   // Guardar el Token de manera persistente
   Future<void> _saveToken(String token) async {
@@ -33,90 +31,145 @@ class AuthService {
     };
   }
 
-  // Login contra Laravel Sanctum
-  Future<bool> login(String email, String password) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/login'),
-        headers: await _getHeaders(),
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          'device_name': 'flutter_demeter_app', // Requerido por Sanctum
-        }),
-      );
+  String _readErrorMessage(
+    dynamic body, [
+    String fallback = 'Ocurrió un error de autenticación',
+  ]) {
+    if (body is Map<String, dynamic>) {
+      if (body['message'] != null) {
+        return body['message'].toString();
+      }
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        // Ajusta la clave ('token', 'access_token') según tu respuesta de Laravel
-        final token = data['token'] ?? data['access_token'];
-        
-        if (token != null) {
-          await _saveToken(token);
-          return true;
+      final errors = body['errors'];
+      if (errors is Map && errors.isNotEmpty) {
+        final first = errors.values.first;
+        if (first is List && first.isNotEmpty) {
+          return first.first.toString();
         }
       }
-      return false;
-    } catch (e) {
-      print("Error haciendo login: $e");
-      return false;
     }
+
+    return fallback;
   }
 
-  // Login con Google
-  Future<bool> loginWithGoogle() async {
+  AuthResponse _parseAuthResponse(Map<String, dynamic> body) {
+    final response = AuthResponse.fromJson(body);
+    if (response.accessToken.isEmpty) {
+      throw Exception('La API no devolvió access_token.');
+    }
+    return response;
+  }
+
+  Future<AuthResponse> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/login'),
+      headers: await _getHeaders(),
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'device_name': ApiConfig.deviceName,
+      }),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode == 200) {
+      final authResponse = _parseAuthResponse(body);
+      await _saveToken(authResponse.accessToken);
+      return authResponse;
+    }
+
+    throw Exception(_readErrorMessage(body, 'No se pudo iniciar sesión.'));
+  }
+
+  Future<AuthResponse> register({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    String? referralCode,
+  }) async {
+    final payload = {
+      'name': name,
+      'email': email,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+      'device_name': ApiConfig.deviceName,
+      if (referralCode != null && referralCode.trim().isNotEmpty)
+        'referral_code': referralCode.trim(),
+    };
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/register'),
+      headers: await _getHeaders(),
+      body: jsonEncode(payload),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final authResponse = _parseAuthResponse(body);
+      await _saveToken(authResponse.accessToken);
+      return authResponse;
+    }
+
+    throw Exception(_readErrorMessage(body, 'No se pudo crear la cuenta.'));
+  }
+
+  Future<AuthResponse> loginWithGoogle() async {
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
-        serverClientId: '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
+        clientId:
+            '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
+        serverClientId:
+            '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
         scopes: ['email', 'profile'],
       );
 
       // Usado para limpiar la sesión previa en caso de ser necesario
       await googleSignIn.signOut();
-      
+
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        return false; // El usuario canceló
+        throw Exception('El inicio de sesión con Google fue cancelado.');
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final String? idToken = googleAuth.idToken ?? googleAuth.accessToken;
 
       if (idToken == null) {
-        print("No se pudo obtener el idToken de Google");
-        return false;
+        throw Exception('No se pudo obtener el token de Google.');
       }
 
-      // Enviar token a nuestro backend de Laravel
       final response = await http.post(
         Uri.parse('$_baseUrl/login/google'),
         headers: await _getHeaders(),
         body: jsonEncode({
           'token': idToken,
-          'device_name': 'flutter_demeter_app',
+          'device_name': ApiConfig.deviceName,
         }),
       );
 
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final token = data['token'] ?? data['access_token'];
-        
-        if (token != null) {
-          await _saveToken(token);
-          return true;
-        }
-      } else {
-        print("Error del backend al hacer login con Google: ${response.statusCode} - ${response.body}");
+        final authResponse = _parseAuthResponse(body);
+        await _saveToken(authResponse.accessToken);
+        return authResponse;
       }
-      return false;
+
+      throw Exception(
+        _readErrorMessage(body, 'No se pudo iniciar sesión con Google.'),
+      );
     } catch (e) {
-      print("Error en loginWithGoogle: $e");
-      return false;
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Error en login con Google.');
     }
   }
 
-  // Obtener datos del usuario logueado (Devuelve objeto User)
   Future<User?> getMe() async {
     try {
       final response = await http.get(
@@ -125,7 +178,9 @@ class AuthService {
       );
 
       if (response.statusCode == 200) {
-        return User.fromJson(jsonDecode(response.body));
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final userData = data['data'] ?? data['user'] ?? data;
+        return User.fromJson(userData);
       }
     } catch (e) {
       print("Error obteniendo usuario: $e");
@@ -141,9 +196,8 @@ class AuthService {
         headers: await _getHeaders(),
       );
     } catch (_) {}
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('sanctum_token');
   }
 }
-

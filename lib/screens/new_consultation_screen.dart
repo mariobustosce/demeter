@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/astral_chart_service.dart';
 import '../services/oracle_service.dart';
 import '../services/sky_service.dart';
@@ -21,7 +22,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
   final AstralChartService _chartService = AstralChartService();
   final OracleService _oracleService = OracleService();
   final SkyService _skyService = SkyService();
-  
+
   List<dynamic> _charts = [];
   String? _selectedChartId;
   bool _isLoadingCharts = false;
@@ -42,9 +43,9 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
     setState(() {
       _isLoadingCharts = true;
     });
-    
+
     final charts = await _chartService.getUserCharts();
-    
+
     if (mounted) {
       setState(() {
         _charts = charts;
@@ -64,7 +65,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
 
   void _submitConsultation() async {
     if (_queryController.text.trim().isEmpty) return;
-    
+
     if (_useAstralChart && _selectedChartId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, selecciona una carta astral')),
@@ -110,10 +111,22 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
       setState(() {
         _isConsulting = false;
       });
+
+      final isInsufficientBalance =
+          result['error'] == 'Polvo estelar insuficiente';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['error'] ?? 'Error desconocido'),
           backgroundColor: Colors.red,
+          action: isInsufficientBalance
+              ? SnackBarAction(
+                  label: 'Comprar',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/store');
+                  },
+                )
+              : null,
         ),
       );
     }
@@ -137,10 +150,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
       baseTokens += 1500; // Asumiendo que 1 Polvo = 30 Tokens aprox
     }
 
-    return {
-      'polvo': '$basePolvo',
-      'tokens': '$baseTokens',
-    };
+    return {'polvo': '$basePolvo', 'tokens': '$baseTokens'};
   }
 
   @override
@@ -198,7 +208,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Costos
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -228,12 +238,10 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white10),
-                  
+
                   // Checkbox Carta Astral
                   Theme(
-                    data: ThemeData(
-                      unselectedWidgetColor: secondaryTextColor,
-                    ),
+                    data: ThemeData(unselectedWidgetColor: secondaryTextColor),
                     child: CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
@@ -266,64 +274,92 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                             child: SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(color: accentCyan, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                color: accentCyan,
+                                strokeWidth: 2,
+                              ),
                             ),
                           )
                         : _charts.isEmpty
-                            ? Padding(
-                                padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
-                                child: Text(
-                                  'No tienes cartas astrales creadas. Crea una primero.',
-                                  style: TextStyle(color: Colors.red[300], fontSize: 13),
-                                ),
-                              )
-                            : Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: accentCyan.withOpacity(0.3)),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedChartId,
-                                    isExpanded: true,
-                                    hint: const Text(
-                                      'Selecciona una carta astral',
-                                      style: TextStyle(color: secondaryTextColor, fontSize: 14),
-                                    ),
-                                    dropdownColor: const Color(0xFF1A1A24),
-                                    icon: const Icon(Icons.keyboard_arrow_down, color: accentCyan),
-                                    items: _charts.map<DropdownMenuItem<String>>((chart) {
-                                      final id = chart['id']?.toString() ?? '';
-                                      final title = chart['titulo'] ?? chart['title'] ?? 'Carta Astral';
-                                      final sign = chart['sun_sign'] ?? '';
-                                      
-                                      return DropdownMenuItem<String>(
-                                        value: id,
-                                        child: Text(
-                                          '$title ${sign.isNotEmpty ? '($sign)' : ''}',
-                                          style: const TextStyle(color: textColor, fontSize: 14),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (String? newValue) {
-                                      setState(() {
-                                        _selectedChartId = newValue;
-                                      });
-                                    },
+                        ? Padding(
+                            padding: const EdgeInsets.only(
+                              left: 16.0,
+                              bottom: 8.0,
+                            ),
+                            child: Text(
+                              'No tienes cartas astrales creadas. Crea una primero.',
+                              style: TextStyle(
+                                color: Colors.red[300],
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: accentCyan.withOpacity(0.3),
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedChartId,
+                                isExpanded: true,
+                                hint: const Text(
+                                  'Selecciona una carta astral',
+                                  style: TextStyle(
+                                    color: secondaryTextColor,
+                                    fontSize: 14,
                                   ),
                                 ),
+                                dropdownColor: const Color(0xFF1A1A24),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: accentCyan,
+                                ),
+                                items: _charts.map<DropdownMenuItem<String>>((
+                                  chart,
+                                ) {
+                                  final id = chart['id']?.toString() ?? '';
+                                  final title =
+                                      chart['titulo'] ??
+                                      chart['title'] ??
+                                      'Carta Astral';
+                                  final sign = chart['sun_sign'] ?? '';
+
+                                  return DropdownMenuItem<String>(
+                                    value: id,
+                                    child: Text(
+                                      '$title ${sign.isNotEmpty ? '($sign)' : ''}',
+                                      style: const TextStyle(
+                                        color: textColor,
+                                        fontSize: 14,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (String? newValue) {
+                                  setState(() {
+                                    _selectedChartId = newValue;
+                                  });
+                                },
                               ),
+                            ),
+                          ),
                   ],
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Área de Pregunta / Respuesta
             Container(
               decoration: BoxDecoration(
@@ -345,7 +381,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Si ya hay respuesta, mostrarla en lugar del campo de texto
                   if (_response != null)
                     Container(
@@ -353,14 +389,20 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                       decoration: BoxDecoration(
                         color: accentPurple.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: accentPurple.withOpacity(0.3)),
+                        border: Border.all(
+                          color: accentPurple.withOpacity(0.3),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Row(
                             children: [
-                              Icon(Icons.auto_awesome, color: accentPurple, size: 20),
+                              Icon(
+                                Icons.auto_awesome,
+                                color: accentPurple,
+                                size: 20,
+                              ),
                               SizedBox(width: 8),
                               Text(
                                 'Respuesta del Oráculo',
@@ -391,32 +433,44 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                       style: const TextStyle(color: textColor),
                       decoration: InputDecoration(
                         hintText: 'Escribe tu consulta al universo...',
-                        hintStyle: TextStyle(color: secondaryTextColor.withOpacity(0.5)),
+                        hintStyle: TextStyle(
+                          color: secondaryTextColor.withOpacity(0.5),
+                        ),
                         filled: true,
                         fillColor: Colors.black.withOpacity(0.2),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
-                        counterStyle: const TextStyle(color: secondaryTextColor),
+                        counterStyle: const TextStyle(
+                          color: secondaryTextColor,
+                        ),
                       ),
-                      onChanged: (text) => setState(() {}), // Actualizar estado para botón
+                      onChanged: (text) =>
+                          setState(() {}), // Actualizar estado para botón
                     ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Botón de Acción
                   if (_response == null)
                     Align(
                       alignment: Alignment.centerRight,
                       child: ElevatedButton(
-                        onPressed: _queryController.text.trim().isEmpty || _isConsulting
+                        onPressed:
+                            _queryController.text.trim().isEmpty ||
+                                _isConsulting
                             ? null
                             : _submitConsultation,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accentPurple,
-                          disabledBackgroundColor: accentPurple.withOpacity(0.3),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          disabledBackgroundColor: accentPurple.withOpacity(
+                            0.3,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 14,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -478,7 +532,9 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? accentPurple.withOpacity(0.3) : Colors.transparent,
+            color: isSelected
+                ? accentPurple.withOpacity(0.3)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? accentPurple : Colors.transparent,

@@ -88,7 +88,8 @@ class CelestialPainter extends CustomPainter {
       return;
     }
 
-    // 3. OPTIMIZACIÓN: Dibujar fondo principal
+
+    // 3. FONDO PRINCIPAL (solo una vez)
     final bgPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -102,15 +103,6 @@ class CelestialPainter extends CustomPainter {
     const double baseHeight = 2424;
     final double scaleX = size.width / baseWidth;
     final double scaleY = size.height / baseHeight;
-
-    // --- 1. FONDO ---
-    final bgPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: _skyColors,
-      ).createShader(rect);
-    canvas.drawRect(rect, bgPaint);
 
     // --- 2. ESTRELLAS ---
     final skyColorsData = data['sky_colors'];

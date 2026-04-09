@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
@@ -54,6 +55,63 @@ class OracleService {
           'success': false,
           'error': 'Error de validación',
           'details': responseData['errors'].toString(),
+        };
+      } else {
+        return {
+          'success': false,
+          'error': responseData['error'] ?? 'Error desconocido',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Error de conexión',
+        'details': e.toString(),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> consultarCompatibilidad({
+    required String cartaAId,
+    required String cartaBId,
+    String nivelContexto = 'intermedio',
+  }) async {
+    final token = await _authService.getToken();
+    final url = Uri.parse('$_baseUrl/oraculo/compatibilidad');
+
+    final payload = {
+      "carta_a_id": cartaAId,
+      "carta_b_id": cartaBId,
+      "nivel_contexto": nivelContexto,
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(payload),
+      );
+
+      debugPrint("DEBUG COMPATIBILIDAD CODE: ${response.statusCode}");
+      debugPrint("DEBUG COMPATIBILIDAD BODY: ${response.body}");
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return {
+          'success': true,
+          'texto': responseData['texto'] ?? responseData['response'],
+          'nuevoBalance': responseData['nuevo_balance'],
+        };
+      } else if (response.statusCode == 403 && responseData['insufficient_coins'] == true) {
+        return {
+          'success': false,
+          'error': 'Polvo estelar insuficiente',
+          'details': 'Necesitas ${responseData['required_coins']} y tienes ${responseData['current_balance']}.'
         };
       } else {
         return {

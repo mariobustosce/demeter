@@ -1,58 +1,147 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'celestial_painter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../services/sky_service.dart';
+import '../services/wallpaper_refresh_service.dart';
 
 class CelestialScreenSaver extends StatefulWidget {
-  final Map<String, dynamic>? apiData;
+  final String? svgString;
+  final double? lat;
+  final double? lon;
+  final DateTime? date;
 
-  const CelestialScreenSaver({Key? key, this.apiData}) : super(key: key);
+  const CelestialScreenSaver({
+    Key? key,
+    this.svgString,
+    this.lat,
+    this.lon,
+    this.date,
+  }) : super(key: key);
 
   @override
   State<CelestialScreenSaver> createState() => _CelestialScreenSaverState();
 }
 
-class _CelestialScreenSaverState extends State<CelestialScreenSaver> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _CelestialScreenSaverState extends State<CelestialScreenSaver>
+    with WidgetsBindingObserver {
+  String? _svgString;
+  bool _loading = true;
+  String? _error;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
+    WidgetsBinding.instance.addObserver(this);
+    if (widget.svgString != null && widget.svgString!.isNotEmpty) {
+      _svgString = widget.svgString;
+      _loading = false;
+    } else {
+      _fetchSvg();
+    }
+    _refreshTimer = Timer.periodic(kWallpaperRefreshInterval, (_) => _fetchSvg());
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchSvg();
+    }
+  }
+
+  Future<void> _fetchSvg() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final service = SkyService();
+      final svg = await service.getMapSvgMobile(
+        lat: widget.lat,
+        lng: widget.lon,
+        date: widget.date ?? DateTime.now(),
+      );
+      if (mounted) {
+        setState(() {
+          _svgString = svg;
+          _loading = false;
+          if (svg == null || svg.isEmpty) {
+            _error = "No se recibió el mapa del servidor.";
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Si no hay data, devolvemos un fondo oscuro neutro en lugar de crashear
-    if (widget.apiData == null || widget.apiData!.isEmpty) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF0A0A0F),
-        body: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF4FD0E7)),
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0F),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white54,
+        title: const Text(
+          "Cielo Celestial",
+          style: TextStyle(color: Colors.white54, fontSize: 14),
+        ),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF4FD0E7)),
+            SizedBox(height: 16),
+            Text("Cargando cielo celestial...", style: TextStyle(color: Colors.white54)),
+          ],
         ),
       );
     }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0F),
-      body: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return CustomPaint(
-            size: Size.infinite,
-            painter: CelestialPainter(
-              data: widget.apiData!,
-              animationValue: _controller.value,
-            ),
-          );
-        },
+    if (_error != null || _svgString == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            _error ?? "No se pudo cargar el mapa celestial.",
+            style: const TextStyle(color: Colors.white54),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: SvgPicture.string(
+        _svgString!,
+        fit: BoxFit.contain,
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height - kToolbarHeight,
       ),
     );
   }

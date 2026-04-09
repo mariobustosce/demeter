@@ -5,17 +5,9 @@ import android.view.SurfaceHolder
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
-
-import android.content.Intent
-import android.app.WallpaperManager
-import android.content.ComponentName
-import android.content.Context
 import io.flutter.embedding.engine.FlutterEngineCache
-import io.flutter.plugin.common.MethodCall
-
-import io.flutter.embedding.engine.renderer.FlutterRenderer
-import io.flutter.embedding.android.FlutterSurfaceView
-import android.view.Surface
+import io.flutter.FlutterInjector
+import io.flutter.plugins.GeneratedPluginRegistrant
 
 class CelestialWallpaperService : WallpaperService() {
     
@@ -30,14 +22,22 @@ class CelestialWallpaperService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
             
-            // Intentar recuperar el motor del cache para evitar recrearlo innecesariamente si ya existe
             var engine = FlutterEngineCache.getInstance().get("celestial_engine")
             
             if (engine == null) {
                 engine = FlutterEngine(this@CelestialWallpaperService)
-                // Especificar que el punto de entrada es 'wallpaperMain'
+                
+                // Registrar plugins explícitamente (SharedPreferences, etc.)
+                try {
+                    GeneratedPluginRegistrant.registerWith(engine)
+                } catch (e: Exception) {
+                    android.util.Log.w("CelestialWallpaper", "Plugin registration: ${e.message}")
+                }
+                
+                // Usar findAppBundlePath() para la ruta correcta del bundle AOT
+                val flutterLoader = FlutterInjector.instance().flutterLoader()
                 val entrypoint = DartExecutor.DartEntrypoint(
-                    "lib/main.dart",
+                    flutterLoader.findAppBundlePath(),
                     "wallpaperMain"
                 )
                 engine.dartExecutor.executeDartEntrypoint(entrypoint)
@@ -46,17 +46,6 @@ class CelestialWallpaperService : WallpaperService() {
             
             flutterEngine = engine
             channel = MethodChannel(engine.dartExecutor.binaryMessenger, "com.example.demeter/wallpaper")
-            
-            // Escuchar actualizaciones desde la App principal
-            channel?.setMethodCallHandler { call, result ->
-                if (call.method == "updateData") {
-                    // Reenviar al motor de Flutter del Wallpaper
-                    channel?.invokeMethod("updateData", call.arguments)
-                    result.success(null)
-                } else {
-                    result.notImplemented()
-                }
-            }
         }
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
@@ -83,7 +72,11 @@ class CelestialWallpaperService : WallpaperService() {
 
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
-            flutterEngine?.renderer?.stopRenderingToSurface()
+            try {
+                flutterEngine?.renderer?.stopRenderingToSurface()
+            } catch (e: Exception) {
+                android.util.Log.e("CelestialWallpaper", "Error deteniendo renderizado: ${e.message}")
+            }
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
