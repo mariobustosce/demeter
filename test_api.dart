@@ -1,0 +1,1 @@
+import 'dart:math'; import 'package:http/http.dart' as http; void main() async { final res = await http.get(Uri.parse('https://windowsdemeter.com/api/astronomy/map-svg?lat=-34.60&lng=-58.38&date=2026-03-26&time=18:00')); print(res.body.substring(0, min(1800, res.body.length))); print('...'); }

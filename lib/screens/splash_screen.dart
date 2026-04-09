@@ -1,5 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/auth_service.dart';
+
+const String _appIconSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+    <defs>
+        <linearGradient id="galaxy-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#16213e" />
+            <stop offset="50%" stop-color="#0f0f1e" />
+            <stop offset="100%" stop-color="#050508" />
+        </linearGradient>
+        <radialGradient id="nebula" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.3" />
+            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="arch-glow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#4fd0e7" stop-opacity="0.1"/>
+            <stop offset="50%" stop-color="#4fd0e7" stop-opacity="1"/>
+            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.1"/>
+        </linearGradient>
+    </defs>
+
+    <rect width="40" height="40" rx="10" fill="url(#galaxy-bg)" />
+    <rect width="40" height="40" rx="10" fill="url(#nebula)" />
+
+    <circle cx="8" cy="10" r="0.5" fill="#ffffff" opacity="0.6" />
+    <circle cx="32" cy="16" r="0.8" fill="#4fd0e7" opacity="0.8" />
+    <circle cx="28" cy="6" r="0.5" fill="#ffffff" opacity="0.4" />
+    <circle cx="12" cy="24" r="1.2" fill="#8b5cf6" opacity="0.5" />
+    <circle cx="34" cy="28" r="0.5" fill="#ffffff" opacity="0.3" />
+    
+    <path d="M20 4 L20.5 6 L22 6.5 L20.5 7 L20 9 L19.5 7 L18 6.5 L19.5 6 Z" fill="#ffffff" opacity="0.9"/>
+    <path d="M10 16 L10.3 17 L11 17.3 L10.3 17.6 L10 18.6 L9.7 17.6 L9 17.3 L9.7 17 Z" fill="#4fd0e7" opacity="0.8"/>
+
+    <path d="M 4 28 Q 20 -2 36 28" stroke="url(#arch-glow)" stroke-width="1.5" stroke-linecap="round" fill="none" stroke-dasharray="2 3" />
+    <path d="M 6 32 Q 20 6 34 32" stroke="#8b5cf6" stroke-width="0.5" fill="none" opacity="0.4" />
+
+    <g transform="translate(0, 1)">
+        <path d="M 20 34 L 20 15" stroke="#fcd34d" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M20 28 C 24 27, 26 24, 23 21 C 21 21, 20.5 25, 20 28 Z" fill="#fbbf24"/>
+        <path d="M20 23 C 24 22, 26 19, 23 16 C 21 16, 20.5 20, 20 23 Z" fill="#fbbf24"/>
+        <path d="M20 18 C 23.5 17, 25 14, 22.5 11 C 21 11, 20.5 15, 20 18 Z" fill="#fef08a"/>
+        <path d="M20 26 C 16 25, 14 22, 17 19 C 19 19, 19.5 23, 20 26 Z" fill="#fbbf24"/>
+        <path d="M20 21 C 16 20, 14 17, 17 14 C 19 14, 19.5 18, 20 21 Z" fill="#fbbf24"/>
+        <path d="M20 16 C 16.5 15, 15 12, 17.5 9 C 19 9, 19.5 13, 20 16 Z" fill="#fef08a"/>
+    </g>
+</svg>
+''';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,17 +66,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   // Verifica si ya existe un token almacenado
   Future<void> _checkAuth() async {
-    // Simulamos un pequeño retraso para ver el logo
     await Future.delayed(const Duration(seconds: 2));
 
-    String? token = await _authService.getToken();
+    final token = await _authService.getToken();
+    final user = token == null || token.isEmpty
+        ? null
+        : await _authService.getMe();
 
     if (mounted) {
-      if (token != null && token.isNotEmpty) {
-        // Token existe -> Ir al Dashboard
+      if (user != null) {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // No hay token -> Ir al Login
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
@@ -37,17 +84,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
+    return Scaffold(
+      backgroundColor: const Color(0xFF050508), // Fondo oscuro para que combine con el diseño tipo galaxia
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.eco, size: 80, color: Color(0xFF2E7D32)),
-            SizedBox(height: 20),
-            CircularProgressIndicator(
-              color: Color(0xFF2E7D32),
+            // Carga el SVG que acabamos de definir en constante
+            SvgPicture.string(
+              _appIconSvg,
+              width: 140, // Tamaño grande para que impacte
+              height: 140,
             ),
+            const SizedBox(height: 40),
+            // Rueda de progreso estilizada acorde al tema astrológico
+            const CircularProgressIndicator(color: Color(0xFF4FD0E7)), 
           ],
         ),
       ),

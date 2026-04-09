@@ -51,17 +51,14 @@ class SkyService {
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       final timeStr =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+          
+      // Construcción manual de la URL
+      final manualUrlString = '$_baseUrl/astronomy/map-api-mobile?lat=${latitude}&lon=${longitude}&date=$dateStr&time=$timeStr&_t=${DateTime.now().millisecondsSinceEpoch}';
+      final uri = Uri.parse(manualUrlString);
 
-      final queryParams = {
-        'lat': latitude.toString(),
-        'lon': longitude.toString(),
-        'date': dateStr,
-        'time': timeStr,
-      };
-
-      final uri = Uri.parse(
-        '$_baseUrl/astronomy/map-api-mobile',
-      ).replace(queryParameters: queryParams);
+      print("--- DEBUG API DATA ---");
+      print("Flutter enviando a: $manualUrlString");
+      print("Hora exacta tomada de Flutter: $timeStr");
 
       final response = await http
           .get(
@@ -113,16 +110,13 @@ class SkyService {
       final timeStr =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-      final queryParams = {
-        'lat': latitude.toString(),
-        'lon': longitude.toString(),
-        'date': dateStr,
-        'time': timeStr,
-      };
+      // Construcción manual por GET como en el navegador web
+      final manualUrlString = '$_baseUrl/astronomy/map-svg-mobile?lat=${latitude}&lon=${longitude}&date=$dateStr&time=$timeStr&_t=${DateTime.now().millisecondsSinceEpoch}';
+      final uri = Uri.parse(manualUrlString);
 
-      final uri = Uri.parse(
-        '$_baseUrl/astronomy/map-svg-mobile',
-      ).replace(queryParameters: queryParams);
+      print("--- DEBUG MAP SVG ---");
+      print("Flutter enviando a: $manualUrlString");
+      print("Hora exacta tomada de Flutter: $timeStr");
 
       final response = await http
           .get(

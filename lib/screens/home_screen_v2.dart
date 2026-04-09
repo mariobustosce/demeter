@@ -1,10 +1,6 @@
-import 'dart:math' as math;
-import 'dart:ui' as ui;
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:async_wallpaper/async_wallpaper.dart';
 import '../services/auth_service.dart';
 import '../services/sky_service.dart';
@@ -14,8 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import 'astral_charts_screen.dart';
 import 'oracle_consultations_screen.dart';
-import 'celestial_painter.dart';
+import 'compatibility_screen.dart';
 import 'celestial_screen_saver.dart'; // Importar el visor del Canvas
+import 'profile_screen.dart'; // Importar perfil
+import '../services/wallpaper_refresh_service.dart';
 
 // Colores celestiales (WindowsDemeter)
 const backgroundColor = Color(0xFF0A0A0F);
@@ -38,8 +36,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   final SkyService _skyService = SkyService();
 
   late Future<User?> _userFuture;
-  late Future<Map<String, dynamic>?> _canvasMapFuture; // Cambiado para recibir JSON
+  late Future<Map<String, dynamic>?> _canvasMapFuture; // JSON para datos astrales y botón wallpaper
   late Future<Map<String, dynamic>> _astralProfileFuture;
+  late Future<String?> _svgFuture; // SVG del cielo para el mapa HOME
 
   // Controles del Cielo
   DateTime _selectedDate = DateTime.now();
@@ -56,6 +55,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
 
     // Asignar futures simulados primero para que FutureBuilder espere sin fallar
     _canvasMapFuture = Future.value(null);
+    _svgFuture = Future.value(null);
     _astralProfileFuture = Future<Map<String, dynamic>>.delayed(
       const Duration(
         days: 1,
@@ -67,6 +67,21 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   }
 
   Future<void> _initLocationAndData() async {
+    final now = DateTime.now();
+
+    if (mounted) {
+      setState(() {
+        _selectedDate = DateTime(now.year, now.month, now.day);
+        _selectedTime = TimeOfDay.fromDateTime(now);
+        _locationController.clear();
+        _latController.clear();
+        _lonController.clear();
+      });
+    }
+
+    String nextLat = "-33.4377";
+    String nextLon = "-70.6511";
+
     try {
       // Intentamos obtener la ubicación inicial para rellenar los campos
       // Usamos el servicio de geolocator directamente o asumimos valores por defecto
@@ -80,37 +95,24 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
             permission == LocationPermission.always) {
           // SOLO UNA PETICION de locación, evitamos llamadas duplicadas y crash de LocationManager
           final pos = await Geolocator.getCurrentPosition();
-          if (mounted) {
-            setState(() {
-              _latController.text = pos.latitude.toString();
-              _lonController.text = pos.longitude.toString();
-            });
-          }
-        } else {
-           // Asignar default si no dan permiso
-            if (mounted) setState(() {
-              _latController.text = "-33.4377";
-              _lonController.text = "-70.6511";
-            });
+          nextLat = pos.latitude.toString();
+          nextLon = pos.longitude.toString();
         }
-      } else {
-        // Default si no hay servicio de location
-        if (mounted) setState(() {
-          _latController.text = "-33.4377";
-          _lonController.text = "-70.6511";
-        });
       }
     } catch (e) {
       print("Error obteniendo ubicación inicial UI: $e");
-      if (mounted) setState(() {
-        _latController.text = "-33.4377";
-        _lonController.text = "-70.6511";
+    }
+
+    if (mounted) {
+      setState(() {
+        _latController.text = nextLat;
+        _lonController.text = nextLon;
       });
     }
 
     if (mounted) {
-      // Una vez la ubicación fue resuelta (o falló), hace mos una única llamada a las API
-      _updateSkyData(initial: true);
+      // Una vez la ubicación fue resuelta (o falló), hacemos una única llamada a las API
+      await _updateSkyData(initial: true);
     }
   }
 
@@ -136,19 +138,26 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   // Variable para evitar peticiones redundantes
   bool _isUpdating = false;
 
-  void _updateSkyData({bool initial = false, VoidCallback? onRefreshed}) {
-    if (_isUpdating) return;
+  Future<bool> _updateSkyData({bool initial = false, VoidCallback? onRefreshed}) async {
+    if (_isUpdating) return false;
     
     // Si no es un año válido, no hacemos nada para evitar crashes
-    if (_selectedDate.year < 0) return;
+    if (_selectedDate.year < 0) return false;
 
     // Validación de coordenadas para evitar peticiones nulas o inválidas
     final double? lat = double.tryParse(_latController.text);
     final double? lng = double.tryParse(_lonController.text);
     if (lat == null || lng == null) {
       _isUpdating = false;
-      return;
+      return false;
     }
+
+    // Asegurar que el Workmanager siempre tenga las últimas coordenadas
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('wallpaper_lat', lat);
+      await prefs.setDouble('wallpaper_lon', lng);
+    } catch (_) {}
 
     _isUpdating = true;
     final dt = DateTime(
@@ -159,7 +168,15 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       _selectedTime.minute,
     );
 
-    // Llamada única a la API que contiene TODO (Canvas + Datos)
+    // SVG para el mapa HOME (en paralelo, independiente del JSON)
+    final svgCall = _skyService
+        .getMapSvgMobile(lat: lat, lng: lng, date: dt)
+        .catchError((e) {
+          print("Error en svgCall de SkyData: $e");
+          return null;
+        });
+
+    // JSON para datos astrales, botón wallpaper y pestaña planetas
     final apiCall = _skyService.getMapApiData(
       lat: lat,
       lng: lng,
@@ -186,23 +203,28 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     }).catchError((e) {
       print("Error en apiCall de SkyData: $e");
       return null;
-    }).whenComplete(() {
-      if (mounted) {
-        setState(() {
-          _isUpdating = false;
-        });
-      }
-      onRefreshed?.call();
     });
 
     setState(() {
-      // Solo limpiamos el future si no es la carga inicial para evitar parpadeos innecesarios
       if (!initial) {
         _canvasMapFuture = Future.value(null);
+        _svgFuture = Future.value(null);
       }
       _canvasMapFuture = apiCall;
+      _svgFuture = svgCall;
       _astralProfileFuture = apiCall.then((data) => data ?? {});
     });
+
+    try {
+      await Future.wait([svgCall, apiCall]);
+      return true;
+    } finally {
+      _isUpdating = false;
+      if (mounted) {
+        setState(() {});
+      }
+      onRefreshed?.call();
+    }
   }
 
   void _onAppResumeUpdate() {
@@ -579,7 +601,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                                           _buildDataRow("🌅 Sale", lunar['times']?['moonrise']?.toString() ?? 'N/D'),
                                           _buildDataRow("🌇 Se pone", lunar['times']?['moonset']?.toString() ?? 'N/D'),
                                           _buildDataRow("⏱️ Meridiano", lunar['times']?['lunar_meridian']?.toString() ?? 'N/D'),
-                                          _buildDataRow("📏 Distancia", "${(lunar['distance'] as num?)?.toStringAsFixed(0) ?? 'N/D'} km"),
                                           _buildDataRow("⭐ Constelación", lunar['constellation']?.toString() ?? 'N/D'),
                                           _buildDataRow("📡 Elongación", "${(lunar['elongation'] as num?)?.toStringAsFixed(1) ?? 'N/D'}°"),
                                           if ((lunar['times']?['status'] as String?) != null)
@@ -1110,22 +1131,18 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton.icon(
-                                          onPressed: () {
-                                            // 1. Iniciamos la actualización
-                                            _updateSkyData(
-                                              onRefreshed: () {
-                                                if (mounted) {
-                                                  // 2. Cerramos el Modal para que se vea el Canvas cambiando
-                                                  Navigator.pop(context);
-                                                  
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                                    content: Text("Cielo actualizado con éxito"),
-                                                    duration: Duration(seconds: 2),
-                                                    backgroundColor: Colors.green,
-                                                  ));
-                                                }
-                                              },
-                                            );
+                                          onPressed: _isUpdating ? null : () async {
+                                            final messenger = ScaffoldMessenger.of(this.context);
+                                            Navigator.of(context).pop();
+
+                                            final updated = await _updateSkyData();
+                                            if (!mounted || !updated) return;
+
+                                            messenger.showSnackBar(const SnackBar(
+                                              content: Text("Cielo actualizado con éxito"),
+                                              duration: Duration(seconds: 2),
+                                              backgroundColor: Colors.green,
+                                            ));
                                           },
                                           icon: const Icon(Icons.refresh, color: backgroundColor),
                                           label: const Text("Refrescar Cielo", style: TextStyle(color: backgroundColor, fontWeight: FontWeight.bold)),
@@ -1194,10 +1211,139 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     return s[0].toUpperCase() + s.substring(1);
   }
 
+  void _showWallpaperOptions(BuildContext ctx) {
+    final lat = double.tryParse(_latController.text);
+    final lon = double.tryParse(_lonController.text);
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              "Fondo de Pantalla Celestial",
+              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "El cielo se obtiene en tiempo real desde el servidor.",
+              style: TextStyle(color: secondaryTextColor, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.preview_rounded, color: accentCyan),
+              title: const Text("Previsualizar Cielo", style: TextStyle(color: textColor)),
+              subtitle: const Text("Ver el mapa celeste a pantalla completa",
+                  style: TextStyle(color: secondaryTextColor, fontSize: 11)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                Navigator.push(ctx, MaterialPageRoute(
+                  builder: (_) => CelestialScreenSaver(lat: lat, lon: lon),
+                ));
+              },
+            ),
+            const Divider(color: Colors.white12),
+            ListTile(
+              leading: const Icon(Icons.home_outlined, color: accentCyan),
+              title: const Text("Pantalla Principal", style: TextStyle(color: textColor)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _applyWallpaper(ctx, WallpaperTarget.home);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.lock_outline, color: accentCyan),
+              title: const Text("Pantalla de Bloqueo", style: TextStyle(color: textColor)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _applyWallpaper(ctx, WallpaperTarget.lock);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.wallpaper_rounded, color: accentPurple),
+              title: const Text("Ambas Pantallas",
+                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _applyWallpaper(ctx, WallpaperTarget.both);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _applyWallpaper(BuildContext ctx, WallpaperTarget target) async {
+    final lat = double.tryParse(_latController.text) ?? -33.5227;
+    final lon = double.tryParse(_lonController.text) ?? -70.5983;
+    final dt = DateTime(
+      _selectedDate.year, _selectedDate.month, _selectedDate.day,
+      _selectedTime.hour, _selectedTime.minute,
+    );
+
+    await persistWallpaperSettings(lat: lat, lon: lon, target: target);
+    await scheduleWallpaperRefresh(initialDelay: const Duration(minutes: 2));
+
+    if (!ctx.mounted) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      const SnackBar(
+        content: Row(children: [
+          SizedBox(
+            width: 18, height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+          SizedBox(width: 12),
+          Text("Generando fondo celestial..."),
+        ]),
+        duration: Duration(seconds: 60),
+        backgroundColor: accentPurple,
+      ),
+    );
+    try {
+      await refreshWallpaperFromServer(date: dt);
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text("¡Fondo celestial aplicado! ✨"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: backgroundColor,
         appBar: AppBar(
@@ -1218,7 +1364,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
             ),
             onSelected: (value) async {
               if (value == 'profile') {
-                // Implementar navegación a perfil si existe
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
               } else if (value == 'logout') {
                 await _authService.logout();
                 if (mounted) Navigator.pushReplacementNamed(context, "/login");
@@ -1265,12 +1414,13 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
               unselectedLabelColor: secondaryTextColor,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 10,
-                letterSpacing: 0.8,
+                fontSize: 9,
+                letterSpacing: 0.5,
               ),
               tabs: const [
                 Tab(text: "HOME"),
                 Tab(text: "CONSULTAS"),
+                Tab(text: "SINCRO"),
                 Tab(text: "CARTAS"),
               ],
             ),
@@ -1291,35 +1441,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                           size: 20,
                           color: accentCyan,
                         ),
-                        tooltip: "Selector de Fondo Vivo / Protector",
-                        onPressed: () async {
-                          // Aseguramos que data es la última disponible si snapshot está cargado
-                          final currentData = snapshot.data ?? {};
-                          
-                          try {
-                            // Usamos el canal nativo para el Live Wallpaper
-                            const platform = MethodChannel('com.example.demeter/wallpaper');
-                            await platform.invokeMethod('openWallpaperPicker');
-                            
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Abriendo selector de fondos animados..."),
-                                  backgroundColor: accentCyan,
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CelestialScreenSaver(apiData: currentData),
-                                ),
-                              );
-                            }
-                          }
-                        },
+                        tooltip: "Fondo de Pantalla Celestial",
+                        onPressed: () => _showWallpaperOptions(context),
                       ),
                     ],
                   );
@@ -1352,10 +1475,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                         ),
                       ),
                     ),
-                    // Mapa Canvas
+                    // Mapa SVG del cielo (obtenido desde map-svg-mobile)
                     Positioned.fill(
-                      child: FutureBuilder<Map<String, dynamic>?>(
-                        future: _canvasMapFuture,
+                      child: FutureBuilder<String?>(
+                        future: _svgFuture,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return const Center(
@@ -1373,14 +1496,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                               ),
                             );
                           }
-
-                          // Muestra el Canvas nativo animado - Repite infinitamente
-                          final apiData = snapshot.data!;
                           return RefreshIndicator(
-                            onRefresh: () async {
-                              // Al deslizar hacia abajo, sincronizamos con tiempo y ubicación actual
-                              await _initLocationAndData();
-                            },
+                            onRefresh: () async => _initLocationAndData(),
                             color: accentCyan,
                             backgroundColor: cardBackground,
                             displacement: 60,
@@ -1390,22 +1507,65 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                               child: SizedBox(
                                 height: MediaQuery.of(context).size.height,
                                 width: MediaQuery.of(context).size.width,
+                                child: SvgPicture.string(
+                                  snapshot.data!,
+                                  fit: BoxFit.cover,
+                                  width: MediaQuery.of(context).size.width,
+                                  height: MediaQuery.of(context).size.height,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    /*
+                    // =====================================================
+                    // [CANVAS COMENTADO - RESERVADO PARA USO FUTURO]
+                    // Renderizado con CustomPainter + CelestialPainter
+                    // =====================================================
+                    Positioned.fill(
+                      child: FutureBuilder<Map<String, dynamic>?>(
+                        future: _canvasMapFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(color: accentCyan),
+                            );
+                          }
+                          if (snapshot.hasError || !snapshot.hasData ||
+                              snapshot.data == null || snapshot.data!.isEmpty) {
+                            return const Center(
+                              child: Text('No se pudo cargar el mapa celestial.',
+                                  style: TextStyle(color: Colors.white54)),
+                            );
+                          }
+                          final apiData = snapshot.data!;
+                          return RefreshIndicator(
+                            onRefresh: () async => _initLocationAndData(),
+                            color: accentCyan,
+                            backgroundColor: cardBackground,
+                            displacement: 60,
+                            notificationPredicate: (n) => n.depth == 0,
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: SizedBox(
+                                height: MediaQuery.of(context).size.height,
+                                width: MediaQuery.of(context).size.width,
                                 child: RepaintBoundary(
                                   child: TweenAnimationBuilder<double>(
-                                     tween: Tween<double>(begin: 0, end: 1),
-                                     duration: const Duration(seconds: 4),
-                                     onEnd: () {
-                                       // No necesitamos hacer nada aquí, solo evitar el setstate masivo
-                                     },
-                                     builder: (context, value, child) {
-                                       return CustomPaint(
-                                         size: Size.infinite,
-                                         painter: CelestialPainter(
-                                           data: apiData,
-                                           animationValue: value,
-                                         ),
-                                       );
-                                     },
+                                    tween: Tween<double>(begin: 0, end: 1),
+                                    duration: const Duration(seconds: 4),
+                                    builder: (context, value, child) {
+                                      return CustomPaint(
+                                        size: Size.infinite,
+                                        painter: CelestialPainter(
+                                          data: apiData,
+                                          animationValue: value,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
@@ -1414,13 +1574,17 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                         },
                       ),
                     ),
+                    */
                   ],
                 ),
 
                 // TAB 2: CONSULTAS
                 const OracleConsultationsScreen(),
 
-                // TAB 3: CARTAS
+                // TAB 3: COMPATIBILIDAD (SINCRO)
+                const CompatibilityScreen(),
+
+                // TAB 4: CARTAS
                 const AstralChartsScreen(),
               ],
             ),

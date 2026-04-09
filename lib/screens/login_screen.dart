@@ -1,105 +1,113 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passController = TextEditingController();
   final _authService = AuthService();
+
   bool _isLoading = false;
   bool _isGoogleLoading = false;
 
-  void _handleLogin() async {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
+  String _readableError(Object error) {
+    return error.toString().replaceFirst('Exception: ', '');
+  }
+
+  Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
 
-    bool success = await _authService.login(
-      _emailController.text.trim(), 
-      _passController.text.trim()
-    );
+    try {
+      await _authService.login(
+        _emailController.text.trim(),
+        _passController.text.trim(),
+      );
 
-    setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Bienvenido a Demeter!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_readableError(error)),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
       if (mounted) {
-        // Redirigir al 'Dashboard'
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("¡Bienvenido a Demeter!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pushReplacementNamed(context, '/home'); // Usamos la ruta definida
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Credenciales incorrectas"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _isLoading = false);
       }
     }
   }
 
-  void _handleGoogleLogin() async {
-    setState(() {
-      _isGoogleLoading = true;
-    });
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isGoogleLoading = true);
 
-    bool success = await _authService.loginWithGoogle();
+    try {
+      await _authService.loginWithGoogle();
 
-    setState(() {
-      _isGoogleLoading = false;
-    });
+      if (!mounted) return;
 
-    if (success) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_readableError(error)),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al iniciar sesión con Google'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _isGoogleLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Definición de colores celestiales basados en el estilo CSS enviado
     const backgroundColor = Color(0xFF0A0A0F);
     const deepSpaceColor = Color(0xFF1A1A2E);
     const accentCyan = Color(0xFF4FD0E7);
     const accentPurple = Color(0xFF8B5CF6);
-    const cardBackground = Color(0xEF0F172A); // Fondo de tarjeta con opacidad
+    const cardBackground = Color(0xEF0F172A);
     const textColor = Color(0xFFF7FAFC);
     const secondaryTextColor = Color(0xFF94A3B8);
-    
+
     return Scaffold(
       backgroundColor: backgroundColor,
       body: Stack(
         children: [
-          // --- FONDO CELESTIAL (Radial Gradients) ---
           Container(
             decoration: const BoxDecoration(
               gradient: RadialGradient(
                 center: Alignment.center,
                 radius: 1.5,
-                colors: [
-                  deepSpaceColor,
-                  Color(0xFF0F0F1E),
-                  backgroundColor,
-                ],
+                colors: [deepSpaceColor, Color(0xFF0F0F1E), backgroundColor],
               ),
             ),
           ),
@@ -132,30 +140,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // --- LOGO / ICONO CELESTIAL ---
                     const Center(
                       child: Text(
-                        "✨", // Emoji como placeholder del logo celestial
+                        '✨',
                         style: TextStyle(
                           fontSize: 60,
-                          shadows: [
-                            Shadow(
-                              color: accentCyan,
-                              blurRadius: 20,
-                            ),
-                          ],
+                          shadows: [Shadow(color: accentCyan, blurRadius: 20)],
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
-                    // --- TÍTULO ---
                     ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
                         colors: [accentCyan, accentPurple, accentCyan],
                       ).createShader(bounds),
                       child: const Text(
-                        "WindowsDemeter",
+                        'Windows Demeter',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 32,
@@ -167,28 +167,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      "Ventana al Cielo y Oráculo",
+                      'Ventana al Cielo y Oráculo',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: secondaryTextColor,
-                      ),
+                      style: TextStyle(fontSize: 14, color: secondaryTextColor),
                     ),
                     const SizedBox(height: 50),
-
-                    // --- INPUT EMAIL ---
                     TextField(
                       controller: _emailController,
                       style: const TextStyle(color: textColor),
                       decoration: InputDecoration(
-                        labelText: "Email",
+                        labelText: 'Email',
                         labelStyle: const TextStyle(color: secondaryTextColor),
-                        prefixIcon: const Icon(Icons.email_outlined, color: secondaryTextColor),
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: secondaryTextColor,
+                        ),
                         filled: true,
                         fillColor: Colors.black.withOpacity(0.4),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: accentCyan.withOpacity(0.2)),
+                          borderSide: BorderSide(
+                            color: accentCyan.withOpacity(0.2),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -197,21 +197,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
-                    // --- INPUT PASSWORD ---
                     TextField(
                       controller: _passController,
                       obscureText: true,
                       style: const TextStyle(color: textColor),
                       decoration: InputDecoration(
-                        labelText: "Contraseña",
+                        labelText: 'Contraseña',
                         labelStyle: const TextStyle(color: secondaryTextColor),
-                        prefixIcon: const Icon(Icons.lock_outline, color: secondaryTextColor),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline,
+                          color: secondaryTextColor,
+                        ),
                         filled: true,
                         fillColor: Colors.black.withOpacity(0.4),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: accentCyan.withOpacity(0.2)),
+                          borderSide: BorderSide(
+                            color: accentCyan.withOpacity(0.2),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -220,8 +223,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
-
-                    // --- BOTÓN LOGIN ---
                     Container(
                       height: 55,
                       decoration: BoxDecoration(
@@ -246,59 +247,38 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: _isLoading 
-                          ? const CircularProgressIndicator(color: backgroundColor)
-                          : const Text(
-                              "INGRESAR AL ORÁCULO",
-                              style: TextStyle(
+                        child: _isLoading
+                            ? const CircularProgressIndicator(
                                 color: backgroundColor,
-                                fontWeight: FontWeight.bold, 
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    // --- BOTÓN GOOGLE (Estilo Celestial) ---
-                    OutlinedButton(
-                      onPressed: _isLoading || _isGoogleLoading ? null : _handleGoogleLogin,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: accentCyan.withOpacity(0.4)),
-                        backgroundColor: Colors.white.withOpacity(0.05),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isGoogleLoading
-                        ? const CircularProgressIndicator(color: accentCyan)
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SvgPicture.network(
-                                'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                                height: 20,
-                                width: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                "Iniciar sesión con Google",
+                              )
+                            : const Text(
+                                'INGRESAR AL ORÁCULO',
                                 style: TextStyle(
-                                  color: textColor,
-                                  fontWeight: FontWeight.w500,
+                                  color: backgroundColor,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
                                 ),
                               ),
-                            ],
-                          ),
+                      ),
                     ),
-                    
                     const SizedBox(height: 20),
-                    // --- FOOTER TEXT ---
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: _isLoading || _isGoogleLoading
+                          ? null
+                          : () => Navigator.pushNamed(context, '/register'),
+                      child: const Text(
+                        'Crear cuenta nueva',
+                        style: TextStyle(
+                          color: accentCyan,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                     TextButton(
                       onPressed: () {},
                       child: const Text(
-                        "¿Olvidaste tu contraseña?",
+                        '¿Olvidaste tu contraseña?',
                         style: TextStyle(color: Color(0xFF60A5FA)),
                       ),
                     ),
