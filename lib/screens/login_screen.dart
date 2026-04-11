@@ -155,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         colors: [accentCyan, accentPurple, accentCyan],
                       ).createShader(bounds),
                       child: const Text(
-                        'Windows Demeter',
+                        'WindowsDemeter',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 32,
@@ -262,6 +262,39 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    OutlinedButton(
+                      onPressed: _isLoading || _isGoogleLoading
+                          ? null
+                          : _handleGoogleLogin,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: accentCyan.withOpacity(0.4)),
+                        backgroundColor: Colors.white.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isGoogleLoading
+                          ? const CircularProgressIndicator(color: accentCyan)
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SvgPicture.network(
+                                  'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                                  height: 20,
+                                  width: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Iniciar sesión con Google',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: _isLoading || _isGoogleLoading

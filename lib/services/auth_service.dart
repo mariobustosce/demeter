@@ -119,10 +119,9 @@ class AuthService {
   Future<AuthResponse> loginWithGoogle() async {
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId:
-            '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
-        serverClientId:
-            '829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com',
+        // ATENCIÓN: AQUÍ DEBES PONER TU CLIENT ID DE "APLICACIÓN WEB" OBTENIDO EN GOOGLE CLOUD
+        // ¡No uses el Client ID de tipo "Android/installed" aquí!
+        serverClientId: '296300261473-f4ou0ieqsjhefgcavolio7msnc0mcjev.apps.googleusercontent.com',
         scopes: ['email', 'profile'],
       );
 

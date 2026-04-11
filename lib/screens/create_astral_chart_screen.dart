@@ -111,12 +111,15 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
               children: const [
                 Text('🌟', style: TextStyle(fontSize: 28)),
                 SizedBox(width: 8),
-                Text(
-                  'Generador de Carta Astral',
-                  style: TextStyle(
-                    color: accentCyan,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                Flexible(
+                  child: Text(
+                    'Generador de Carta Astral',
+                    style: TextStyle(
+                      color: accentCyan,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
