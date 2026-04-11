@@ -1,15 +1,15 @@
 {
   "project_info": {
-    "project_number": "829473466086",
-    "project_id": "windowsdemeter-auth",
-    "storage_bucket": "windowsdemeter-auth.appspot.com"
+    "project_number": "296300261473",
+    "project_id": "demeter-488721",
+    "storage_bucket": "demeter-488721.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:829473466086:android:b2f0a1d5c3e4f5g6h7i8j9",
+        "mobilesdk_app_id": "1:296300261473:android:b2f0a1d5c3e4f5g6h7i8j9",
         "android_client_info": {
-          "package_name": "com.example.demeter"
+          "package_name": "windowsdemeter.com"
         }
       },
       "api_key": [
@@ -19,15 +19,23 @@
       ],
       "oauth_client": [
         {
-          "client_id": "829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com",
+          "client_id": "296300261473-f4ou0ieqsjhefgcavolio7msnc0mcjev.apps.googleusercontent.com",
           "client_type": 3
+        },
+        {
+          "client_id": "296300261473-d1tchivcmuhs96739r07h1btll81dcoj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "windowsdemeter.com",
+            "certificate_hash": "f03ee2e0e078e96a523c71af401316372d5ec13c"
+          }
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "829473466086-5k1fc5lmsn721hmqjgba0hdhk5fkjkbm.apps.googleusercontent.com",
+              "client_id": "296300261473-f4ou0ieqsjhefgcavolio7msnc0mcjev.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

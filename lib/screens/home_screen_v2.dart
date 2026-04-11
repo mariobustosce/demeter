@@ -190,7 +190,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
            
            // Sincronizar con el Live Wallpaper si está activo
            try {
-             const platform = MethodChannel('com.example.demeter/wallpaper');
+             const platform = MethodChannel('windowsdemeter.com/wallpaper');
              await platform.invokeMethod('updateData', data);
            } catch (e) {
              // Ignorar si el fondo de pantalla no está escuchando
@@ -1414,13 +1414,12 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
               unselectedLabelColor: secondaryTextColor,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 9,
+                fontSize: 9.5,
                 letterSpacing: 0.5,
               ),
               tabs: const [
                 Tab(text: "HOME"),
                 Tab(text: "CONSULTAS"),
-                Tab(text: "SINCRO"),
                 Tab(text: "CARTAS"),
               ],
             ),
@@ -1507,11 +1506,16 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                               child: SizedBox(
                                 height: MediaQuery.of(context).size.height,
                                 width: MediaQuery.of(context).size.width,
-                                child: SvgPicture.string(
-                                  snapshot.data!,
-                                  fit: BoxFit.cover,
-                                  width: MediaQuery.of(context).size.width,
-                                  height: MediaQuery.of(context).size.height,
+                                child: InteractiveViewer(
+                                  minScale: 1.0,
+                                  maxScale: 5.0,
+                                  panEnabled: true,
+                                  child: SvgPicture.string(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                    width: MediaQuery.of(context).size.width,
+                                    height: MediaQuery.of(context).size.height,
+                                  ),
                                 ),
                               ),
                             ),

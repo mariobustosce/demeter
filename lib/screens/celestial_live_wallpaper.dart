@@ -32,7 +32,7 @@ class CelestialLiveWallpaper extends StatefulWidget {
 
 class _CelestialLiveWallpaperState extends State<CelestialLiveWallpaper>
     with WidgetsBindingObserver {
-  static const _channel = MethodChannel('com.example.demeter/wallpaper');
+  static const _channel = MethodChannel('windowsdemeter.com/wallpaper');
 
   final SkyService _skyService = SkyService();
   Timer? _refreshTimer;

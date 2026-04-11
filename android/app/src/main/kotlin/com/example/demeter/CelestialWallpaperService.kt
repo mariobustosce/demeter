@@ -1,4 +1,4 @@
-package com.example.demeter
+package windowsdemeter.com
 
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
@@ -45,7 +45,7 @@ class CelestialWallpaperService : WallpaperService() {
             }
             
             flutterEngine = engine
-            channel = MethodChannel(engine.dartExecutor.binaryMessenger, "com.example.demeter/wallpaper")
+            channel = MethodChannel(engine.dartExecutor.binaryMessenger, "windowsdemeter.com/wallpaper")
         }
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {

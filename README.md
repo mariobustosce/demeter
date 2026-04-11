@@ -31,3 +31,6 @@ Estamos implementando una arquitectura avanzada para permitir que el cielo de De
 
 ---
 *Desarrollado con precisión celestial.*
+
+## 🛠️ Corrección de Errores e Historial de Cambios
+- **Actualización de Versión de iOS:** Se corrigió un error de compilación con Cocoapods (workmanager_apple requires a higher minimum deployment target). Se actualizó IPHONEOS_DEPLOYMENT_TARGET a la versión 14.0 en ios/Runner.xcodeproj/project.pbxproj.

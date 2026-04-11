@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/oracle_service.dart';
 import 'new_consultation_screen.dart';
+import 'compatibility_screen.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -107,7 +108,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
         ),
       ),      floatingActionButton: _consultations.isNotEmpty && !_isLoading
           ? FloatingActionButton(
-              onPressed: _showNewConsultationMenu,
+              onPressed: _showFabOptions,
               backgroundColor: accentCyan,
               child: const Icon(Icons.add, color: Colors.black),
             )
@@ -300,5 +301,71 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
     );
     // Refrescar al volver en caso de que se haya hecho una consulta
     _loadConsultations();
+  }
+
+  void _showFabOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accentCyan.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.auto_awesome, color: accentCyan),
+                ),
+                title: const Text('Nueva Consulta', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                subtitle: const Text('Hazle una pregunta al oráculo guiado por IA', style: TextStyle(color: secondaryTextColor, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el bottom sheet
+                  _showNewConsultationMenu(); // Abre la pantalla de consultas
+                },
+              ),
+              const Divider(color: Colors.white10),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accentPurple.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.favorite, color: accentPurple),
+                ),
+                title: const Text('Compatibilidad Astral', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                subtitle: const Text('Compara ambas cartas astrales', style: TextStyle(color: secondaryTextColor, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el bottom sheet
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CompatibilityScreen()),
+                  ); // Abre la pantalla de compatibilidad
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
