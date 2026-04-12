@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fba;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/auth_response.dart';
 import '../models/user.dart';
@@ -118,34 +119,53 @@ class AuthService {
 
   Future<AuthResponse> loginWithGoogle() async {
     try {
+      // 1. Iniciar el flujo de Google indicando el "Web Client ID" para que retorne el idToken
+      // Extraído directamente desde tu google-services.json actualizado
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        // ATENCIÓN: AQUÍ DEBES PONER TU CLIENT ID DE "APLICACIÓN WEB" OBTENIDO EN GOOGLE CLOUD
-        // ¡No uses el Client ID de tipo "Android/installed" aquí!
-        serverClientId: '296300261473-f4ou0ieqsjhefgcavolio7msnc0mcjev.apps.googleusercontent.com',
-        scopes: ['email', 'profile'],
+        serverClientId: '179031827037-a30j3hhgvjkgqdupehgsmortejj9olji.apps.googleusercontent.com',
       );
-
-      // Usado para limpiar la sesión previa en caso de ser necesario
+      
+      // Limpiamos sesión previa
       await googleSignIn.signOut();
 
+      // 2. Mostrar modal de cuentas
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        throw Exception('El inicio de sesión con Google fue cancelado.');
+        throw Exception('El inicio de sesión fue cancelado por el usuario.');
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final String? idToken = googleAuth.idToken ?? googleAuth.accessToken;
+      // 3. Obtener credenciales de Google
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
+      // 4. Crear una nueva credencial para Firebase Auth y autenticar en Firebase
+      final fba.AuthCredential credential = fba.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final fba.UserCredential fbaUserCredential = 
+          await fba.FirebaseAuth.instance.signInWithCredential(credential);
+
+      final fba.User? firebaseUser = fbaUserCredential.user;
+      
+      if (firebaseUser == null) {
+         throw Exception('Ocurrió un error en Firebase al intentar iniciar sesión');
+      }
+
+      // 5. Finalmente obtenemos el idToken de Firebase 
+      // (Opcional, si todavía necesitas enviarlo a tu API backend)
+      final String? idToken = await firebaseUser.getIdToken();
       if (idToken == null) {
-        throw Exception('No se pudo obtener el token de Google.');
+        throw Exception('No se pudo obtener el token de identidad de Firebase.');
       }
 
       final response = await http.post(
         Uri.parse('$_baseUrl/login/google'),
         headers: await _getHeaders(),
         body: jsonEncode({
-          'token': idToken,
+          // ¡EUREKA! Tu backend de Laravel ("sanctum" o "socialite") espera validar el token original de Google
+          // y nosotros le estábamos enviando el ID token interno the Firebase.
+          'token': googleAuth.idToken ?? googleAuth.accessToken,
           'device_name': ApiConfig.deviceName,
         }),
       );

@@ -30,7 +30,7 @@ class HomeScreenV2 extends StatefulWidget {
   State<HomeScreenV2> createState() => _HomeScreenV2State();
 }
 
-class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver {
+class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver, TickerProviderStateMixin {
   int _selectedIndex = 0;
   final AuthService _authService = AuthService();
   final SkyService _skyService = SkyService();
@@ -46,11 +46,20 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lonController = TextEditingController();
+  final TransformationController _viewerController = TransformationController();
+  Animation<Matrix4>? _animationReset;
+  late AnimationController _animationControllerReset;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _animationControllerReset = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..addListener(() {
+        _viewerController.value = _animationReset!.value;
+      });
     _userFuture = _authService.getMe();
 
     // Asignar futures simulados primero para que FutureBuilder espere sin fallar
@@ -119,6 +128,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _viewerController.dispose();
+    _animationControllerReset.dispose();
     super.dispose();
   }
 
@@ -231,6 +242,21 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     if (mounted) {
       _updateSkyData();
     }
+  }
+
+  void _onInteractionEnd(ScaleEndDetails details) {
+    if (_viewerController.value == Matrix4.identity()) return;
+    
+    _animationReset = Matrix4Tween(
+      begin: _viewerController.value,
+      end: Matrix4.identity(),
+    ).animate(
+      CurvedAnimation(
+        parent: _animationControllerReset,
+        curve: Curves.easeOut,
+      ),
+    );
+    _animationControllerReset.forward(from: 0);
   }
 
   Future<void> _pickDate() async {
@@ -1343,7 +1369,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Scaffold(
         backgroundColor: backgroundColor,
         appBar: AppBar(
@@ -1507,6 +1533,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                                 height: MediaQuery.of(context).size.height,
                                 width: MediaQuery.of(context).size.width,
                                 child: InteractiveViewer(
+                                  transformationController: _viewerController,
+                                  onInteractionEnd: _onInteractionEnd,
                                   minScale: 1.0,
                                   maxScale: 5.0,
                                   panEnabled: true,
@@ -1585,10 +1613,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                 // TAB 2: CONSULTAS
                 const OracleConsultationsScreen(),
 
-                // TAB 3: COMPATIBILIDAD (SINCRO)
-                const CompatibilityScreen(),
-
-                // TAB 4: CARTAS
+                // TAB 3: CARTAS
                 const AstralChartsScreen(),
               ],
             ),

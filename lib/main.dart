@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -6,9 +7,15 @@ import 'screens/celestial_live_wallpaper.dart';
 import 'screens/home_screen_v2.dart';
 import 'screens/store_screen.dart';
 import 'services/wallpaper_refresh_service.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inicializamos Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await initializeWallpaperRefreshWorker();
 
