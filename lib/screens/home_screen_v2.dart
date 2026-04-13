@@ -7,10 +7,8 @@ import '../services/sky_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/user.dart';
 import 'astral_charts_screen.dart';
 import 'oracle_consultations_screen.dart';
-import 'compatibility_screen.dart';
 import 'celestial_screen_saver.dart'; // Importar el visor del Canvas
 import 'profile_screen.dart'; // Importar perfil
 import '../services/wallpaper_refresh_service.dart';
@@ -31,11 +29,9 @@ class HomeScreenV2 extends StatefulWidget {
 }
 
 class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver, TickerProviderStateMixin {
-  int _selectedIndex = 0;
   final AuthService _authService = AuthService();
   final SkyService _skyService = SkyService();
 
-  late Future<User?> _userFuture;
   late Future<Map<String, dynamic>?> _canvasMapFuture; // JSON para datos astrales y botón wallpaper
   late Future<Map<String, dynamic>> _astralProfileFuture;
   late Future<String?> _svgFuture; // SVG del cielo para el mapa HOME
@@ -58,9 +54,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       vsync: this,
       duration: const Duration(milliseconds: 300),
     )..addListener(() {
-        _viewerController.value = _animationReset!.value;
+        if (_animationReset != null) {
+          _viewerController.value = _animationReset!.value;
+        }
       });
-    _userFuture = _authService.getMe();
 
     // Asignar futures simulados primero para que FutureBuilder espere sin fallar
     _canvasMapFuture = Future.value(null);
@@ -151,96 +148,87 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
 
   Future<bool> _updateSkyData({bool initial = false, VoidCallback? onRefreshed}) async {
     if (_isUpdating) return false;
-    
-    // Si no es un año válido, no hacemos nada para evitar crashes
-    if (_selectedDate.year < 0) return false;
 
-    // Validación de coordenadas para evitar peticiones nulas o inválidas
-    final double? lat = double.tryParse(_latController.text);
-    final double? lng = double.tryParse(_lonController.text);
-    if (lat == null || lng == null) {
-      _isUpdating = false;
-      return false;
-    }
-
-    // Asegurar que el Workmanager siempre tenga las últimas coordenadas
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('wallpaper_lat', lat);
-      await prefs.setDouble('wallpaper_lon', lng);
-    } catch (_) {}
-
+    // Marcar como ocupado antes de cualquier await para evitar race conditions
     _isUpdating = true;
-    final dt = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
-    );
-
-    // SVG para el mapa HOME (en paralelo, independiente del JSON)
-    final svgCall = _skyService
-        .getMapSvgMobile(lat: lat, lng: lng, date: dt)
-        .catchError((e) {
-          print("Error en svgCall de SkyData: $e");
-          return null;
-        });
-
-    // JSON para datos astrales, botón wallpaper y pestaña planetas
-    final apiCall = _skyService.getMapApiData(
-      lat: lat,
-      lng: lng,
-      date: dt,
-    ).then((data) async {
-       if (data != null) {
-         // Persistir la data para que el Wallpaper pueda leerla de inmediato al arrancar
-         try {
-           final prefs = await SharedPreferences.getInstance();
-           await prefs.setString('last_sky_data', jsonEncode(data));
-           
-           // Sincronizar con el Live Wallpaper si está activo
-           try {
-             const platform = MethodChannel('windowsdemeter.com/wallpaper');
-             await platform.invokeMethod('updateData', data);
-           } catch (e) {
-             // Ignorar si el fondo de pantalla no está escuchando
-           }
-         } catch (e) {
-           print("Error persistiendo o sincronizando sky data: $e");
-         }
-       }
-       return data;
-    }).catchError((e) {
-      print("Error en apiCall de SkyData: $e");
-      return null;
-    });
-
-    setState(() {
-      if (!initial) {
-        _canvasMapFuture = Future.value(null);
-        _svgFuture = Future.value(null);
-      }
-      _canvasMapFuture = apiCall;
-      _svgFuture = svgCall;
-      _astralProfileFuture = apiCall.then((data) => data ?? {});
-    });
 
     try {
+      // Si no es un año válido, no hacemos nada para evitar crashes
+      if (_selectedDate.year < 0) return false;
+
+      // Validación de coordenadas para evitar peticiones nulas o inválidas
+      final double? lat = double.tryParse(_latController.text);
+      final double? lng = double.tryParse(_lonController.text);
+      if (lat == null || lng == null) return false;
+
+      // Asegurar que el Workmanager siempre tenga las últimas coordenadas
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble(kWallpaperLatKey, lat);
+        await prefs.setDouble(kWallpaperLonKey, lng);
+      } catch (_) {}
+
+      // El widget puede haberse desmontado durante el await anterior
+      if (!mounted) return false;
+
+      final dt = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      // SVG para el mapa HOME (en paralelo, independiente del JSON)
+      final svgCall = _skyService
+          .getMapSvgMobile(lat: lat, lng: lng, date: dt)
+          .catchError((e) {
+            debugPrint("Error en svgCall de SkyData: $e");
+            return null;
+          });
+
+      // JSON para datos astrales, botón wallpaper y pestaña planetas
+      final apiCall = _skyService
+          .getMapApiData(lat: lat, lng: lng, date: dt)
+          .then((data) async {
+            if (data != null) {
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('last_sky_data', jsonEncode(data));
+
+                // Sincronizar con el Live Wallpaper si está activo
+                try {
+                  const platform = MethodChannel('windowsdemeter.com/wallpaper');
+                  await platform.invokeMethod('updateData', data);
+                } catch (_) {
+                  // Ignorar si el fondo de pantalla no está escuchando
+                }
+              } catch (e) {
+                debugPrint("Error persistiendo o sincronizando sky data: $e");
+              }
+            }
+            return data;
+          })
+          .catchError((e) {
+            debugPrint("Error en apiCall de SkyData: $e");
+            return null;
+          });
+
+      setState(() {
+        if (!initial) {
+          _canvasMapFuture = Future.value(null);
+          _svgFuture = Future.value(null);
+        }
+        _canvasMapFuture = apiCall;
+        _svgFuture = svgCall;
+        _astralProfileFuture = apiCall.then((data) => data ?? {});
+      });
+
       await Future.wait([svgCall, apiCall]);
       return true;
     } finally {
       _isUpdating = false;
-      if (mounted) {
-        setState(() {});
-      }
       onRefreshed?.call();
-    }
-  }
-
-  void _onAppResumeUpdate() {
-    if (mounted) {
-      _updateSkyData();
     }
   }
 

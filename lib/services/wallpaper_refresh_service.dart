@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:async_wallpaper/async_wallpaper.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart' show SvgStringLoader, vg;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,8 +83,9 @@ Future<void> refreshWallpaperFromServer({DateTime? date}) async {
     );
     if (svgString == null || svgString.isEmpty) return;
 
+    // Usamos 720x1600 en lugar de 1080x2400 para evitar OOM en dispositivos de gama baja
     final pictureInfo = await vg.loadPicture(SvgStringLoader(svgString), null);
-    final image = await pictureInfo.picture.toImage(1080, 2400); 
+    final image = await pictureInfo.picture.toImage(720, 1600);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     pictureInfo.picture.dispose();
     image.dispose();
@@ -109,14 +111,15 @@ Future<void> refreshWallpaperFromServer({DateTime? date}) async {
 
     await prefs.setString(kWallpaperLastRefreshKey, DateTime.now().toIso8601String());
   } catch (e) {
-    if (kDebugMode) {
-      print("Error refrescando wallpaper de fondo: $e");
-    }
+    debugPrint('refreshWallpaperFromServer error: $e');
   }
 }
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
+  // Necesario para usar Flutter rendering (vg.loadPicture, picture.toImage) en background
+  WidgetsFlutterBinding.ensureInitialized();
+
   Workmanager().executeTask((task, inputData) async {
     if (task != kWallpaperTask) return true;
 
@@ -126,8 +129,9 @@ void callbackDispatcher() {
       if (!autoRefreshEnabled) return true;
 
       await refreshWallpaperFromServer(date: DateTime.now());
-    } catch (_) {
-      // Si falla, el workmanager lo reintentará conforme a sus politicas
+    } catch (e) {
+      // Si falla, el workmanager lo reintentará conforme a sus políticas
+      debugPrint('callbackDispatcher error: $e');
     }
 
     return true;
