@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:async_wallpaper/async_wallpaper.dart';
 import '../services/auth_service.dart';
 import '../services/sky_service.dart';
@@ -46,10 +47,35 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   Animation<Matrix4>? _animationReset;
   late AnimationController _animationControllerReset;
 
+  // AdMob banner
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
+
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // TODO: reemplazar con tu Ad Unit ID real
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          setState(() {
+            _isBannerAdReady = true;
+          });
+        },
+        onAdFailedToLoad: (ad, err) {
+          debugPrint('Failed to load a banner ad: ${err.message}');
+          _isBannerAdReady = false;
+          ad.dispose();
+        },
+      ),
+    )..load();
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadBannerAd();
     _animationControllerReset = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -124,6 +150,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
 
   @override
   void dispose() {
+    _bannerAd?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _viewerController.dispose();
     _animationControllerReset.dispose();
@@ -164,8 +191,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       // Asegurar que el Workmanager siempre tenga las últimas coordenadas
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setDouble(kWallpaperLatKey, lat);
-        await prefs.setDouble(kWallpaperLonKey, lng);
+        await prefs.setDouble('wallpaper_lat', lat);
+        await prefs.setDouble('wallpaper_lon', lng);
       } catch (_) {}
 
       // El widget puede haberse desmontado durante el await anterior
@@ -1595,6 +1622,18 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                       ),
                     ),
                     */
+
+                    if (_isBannerAdReady && _bannerAd != null)
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: SafeArea(
+                          child: SizedBox(
+                            width: _bannerAd!.size.width.toDouble(),
+                            height: _bannerAd!.size.height.toDouble(),
+                            child: AdWidget(ad: _bannerAd!),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
 
