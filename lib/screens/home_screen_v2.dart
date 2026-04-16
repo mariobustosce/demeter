@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1339,6 +1341,19 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
 
     await persistWallpaperSettings(lat: lat, lon: lon, target: target);
     await scheduleWallpaperRefresh(initialDelay: const Duration(minutes: 2));
+
+    if (!Platform.isAndroid) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text("Fondo de pantalla solo disponible en Android."),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
 
     if (!ctx.mounted) return;
     ScaffoldMessenger.of(ctx).showSnackBar(
