@@ -20,7 +20,7 @@ const String kWallpaperTargetKey = 'wallpaper_target';
 const String kWallpaperLastRefreshKey = 'wallpaper_last_refresh';
 
 Future<void> initializeWallpaperRefreshWorker() async {
-  if (Platform.isIOS) return; // IOS no soporta cambios de fondo por Workmanager
+  if (!Platform.isAndroid) return; // Solo Android soporta Workmanager y AsyncWallpaper
 
   await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
   await scheduleWallpaperRefresh();
@@ -29,7 +29,9 @@ Future<void> initializeWallpaperRefreshWorker() async {
 Future<void> scheduleWallpaperRefresh({
   Duration initialDelay = const Duration(minutes: 2),
 }) async {
-  if (Platform.isIOS) return;
+  if (!Platform.isAndroid) return;
+
+  debugPrint('scheduleWallpaperRefresh: active, initialDelay=$initialDelay');
 
   await Workmanager().registerPeriodicTask(
     kWallpaperTask, // Un id simple para la tarea
@@ -43,7 +45,7 @@ Future<void> scheduleWallpaperRefresh({
 }
 
 Future<void> cancelWallpaperRefresh() async {
-  if (Platform.isIOS) return;
+  if (!Platform.isAndroid) return;
   await Workmanager().cancelByUniqueName(kWallpaperTask);
 }
 
@@ -67,6 +69,8 @@ Future<void> persistWallpaperSettings({
 }
 
 Future<void> refreshWallpaperFromServer({DateTime? date}) async {
+  if (!Platform.isAndroid) return;
+
   final prefs = await SharedPreferences.getInstance();
   final targetIndex = prefs.getInt(kWallpaperTargetKey) ?? 2;
 
@@ -100,12 +104,13 @@ Future<void> refreshWallpaperFromServer({DateTime? date}) async {
       WallpaperTarget.lock,
       WallpaperTarget.both,
     ];
+    final safeTargetIndex = targetIndex.clamp(0, targets.length - 1).toInt();
     
     await AsyncWallpaper.setWallpaper(
       WallpaperRequest(
         source: file.path,
         sourceType: WallpaperSourceType.file,
-        target: targets[targetIndex.clamp(0, targets.length - 1)],
+        target: targets[safeTargetIndex],
       ),
     );
 
@@ -119,14 +124,19 @@ Future<void> refreshWallpaperFromServer({DateTime? date}) async {
 void callbackDispatcher() {
   // Necesario para usar Flutter rendering (vg.loadPicture, picture.toImage) en background
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('callbackDispatcher: background task started');
 
   Workmanager().executeTask((task, inputData) async {
+    debugPrint('callbackDispatcher: task=$task');
     if (task != kWallpaperTask) return true;
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final autoRefreshEnabled = prefs.getBool(kWallpaperAutoEnabledKey) ?? false;
-      if (!autoRefreshEnabled) return true;
+      if (!autoRefreshEnabled) {
+        debugPrint('callbackDispatcher: wallpaper refresh disabled');
+        return true;
+      }
 
       await refreshWallpaperFromServer(date: DateTime.now());
     } catch (e) {
