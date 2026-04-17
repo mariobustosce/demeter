@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:179031827037:android:a85300f4226203d031e3b4",
         "android_client_info": {
-          "package_name": "windowsdemeter.com"
+          "package_name": "com.windowsdemeter"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "179031827037-m4t3aoffo4umcaqdd4klapq6m3bekvi5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "windowsdemeter.com",
+            "package_name": "com.windowsdemeter",
             "certificate_hash": "f03ee2e0e078e96a523c71af401316372d5ec13c"
           }
         },
