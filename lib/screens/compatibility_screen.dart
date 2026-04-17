@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/astral_chart_service.dart';
 import '../services/oracle_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -30,10 +31,20 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
   bool _isProcessing = false;
   String? _resultMarkdown;
 
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialReady = false;
+
   @override
   void initState() {
     super.initState();
     _loadCharts();
+    _createInterstitialAd();
+  }
+
+  @override
+  void dispose() {
+    _interstitialAd?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCharts() async {
@@ -52,6 +63,61 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       });
     } catch (e) {
       setState(() => _isLoadingCharts = false);
+    }
+  }
+
+  void _createInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: 'ca-app-pub-3940256099942544/1033173712', // TODO: reemplazar por tu Ad Unit ID real
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          _isInterstitialReady = true;
+          _interstitialAd?.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _interstitialAd = null;
+              _isInterstitialReady = false;
+              _createInterstitialAd();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _interstitialAd = null;
+              _isInterstitialReady = false;
+              _createInterstitialAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('InterstitialAd failed to load: ${error.message}');
+          _isInterstitialReady = false;
+        },
+      ),
+    );
+  }
+
+  void _showInterstitial(Future<void> Function() onAdClosed) {
+    if (_isInterstitialReady && _interstitialAd != null) {
+      _interstitialAd?.show();
+      _interstitialAd?.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _interstitialAd = null;
+          _isInterstitialReady = false;
+          _createInterstitialAd();
+          onAdClosed();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _interstitialAd = null;
+          _isInterstitialReady = false;
+          _createInterstitialAd();
+          onAdClosed();
+        },
+      );
+    } else {
+      onAdClosed();
     }
   }
 
@@ -75,6 +141,10 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       _resultMarkdown = null;
     });
 
+    _showInterstitial(_performCompatibility);
+  }
+
+  Future<void> _performCompatibility() async {
     String level = 'basico';
     if (_selectedLevel == 'Astral') level = 'intermedio';
     if (_selectedLevel == 'Divino') level = 'premium';
@@ -85,18 +155,18 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       nivelContexto: level,
     );
 
-    if (mounted) {
-      setState(() {
-        _isProcessing = false;
-        if (result['success']) {
-          _resultMarkdown = result['texto'];
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['error'] ?? 'Error al calcular compatibilidad')),
-          );
-        }
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _isProcessing = false;
+      if (result['success']) {
+        _resultMarkdown = result['texto'];
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['error'] ?? 'Error al calcular compatibilidad')),
+        );
+      }
+    });
   }
 
   @override

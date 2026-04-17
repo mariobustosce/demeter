@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../services/astral_chart_service.dart';
 import '../services/oracle_service.dart';
@@ -33,10 +34,14 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
   bool _isConsulting = false;
   String? _response;
 
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialReady = false;
+
   @override
   void initState() {
     super.initState();
     _loadCharts();
+    _createInterstitialAd();
   }
 
   Future<void> _loadCharts() async {
@@ -59,8 +64,64 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
 
   @override
   void dispose() {
+    _interstitialAd?.dispose();
     _queryController.dispose();
     super.dispose();
+  }
+
+  void _createInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: 'ca-app-pub-3940256099942544/1033173712', // TODO: reemplazar por tu Ad Unit ID real
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          _isInterstitialReady = true;
+          _interstitialAd?.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _interstitialAd = null;
+              _isInterstitialReady = false;
+              _createInterstitialAd();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _interstitialAd = null;
+              _isInterstitialReady = false;
+              _createInterstitialAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('InterstitialAd failed to load: ${error.message}');
+          _isInterstitialReady = false;
+        },
+      ),
+    );
+  }
+
+  void _showInterstitial(Future<void> Function() onAdClosed) {
+    if (_isInterstitialReady && _interstitialAd != null) {
+      _interstitialAd?.show();
+      _interstitialAd?.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _interstitialAd = null;
+          _isInterstitialReady = false;
+          _createInterstitialAd();
+          onAdClosed();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _interstitialAd = null;
+          _isInterstitialReady = false;
+          _createInterstitialAd();
+          onAdClosed();
+        },
+      );
+    } else {
+      onAdClosed();
+    }
   }
 
   void _submitConsultation() async {
@@ -73,6 +134,10 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
       return;
     }
 
+    _showInterstitial(_performConsultation);
+  }
+
+  Future<void> _performConsultation() async {
     setState(() {
       _isConsulting = true;
       _response = null;
@@ -88,7 +153,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
     try {
       contextoCompleto = await _skyService.getAstralProfile();
     } catch (e) {
-      print("No se pudo obtener contexto completo: $e");
+      debugPrint("No se pudo obtener contexto completo: $e");
     }
 
     final result = await _oracleService.consultarAlOraculo(

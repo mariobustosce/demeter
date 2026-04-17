@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/astral_chart_service.dart';
+import '../services/sky_service.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -25,9 +26,11 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
   final _lonController = TextEditingController();
 
   final AstralChartService _chartService = AstralChartService();
+  final SkyService _skyService = SkyService();
   String _selectedTimezone = 'UTC';
   bool _useManualLocation = true;
   bool _isLoading = false;
+  bool _isSearchingLocation = false;
 
   void _submit() async {
     if (_titleController.text.isEmpty ||
@@ -85,6 +88,39 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
           content: Text(response['message'] ?? 'Error desconocido'),
           backgroundColor: Colors.red,
         ),
+      );
+    }
+  }
+
+  Future<void> _searchLocation() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _isSearchingLocation = true;
+    });
+
+    final result = await _skyService.searchLocation(query);
+
+    if (!mounted) return;
+    setState(() {
+      _isSearchingLocation = false;
+    });
+
+    if (result != null) {
+      setState(() {
+        _latController.text = result['lat'].toString();
+        _lonController.text = result['lon'].toString();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Coordenadas encontradas: ${result['lat']}, ${result['lon']}'),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ubicación no encontrada')),
       );
     }
   }
@@ -177,6 +213,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       hintText: 'yyyy-mm-dd',
                       suffixIcon: Icons.calendar_today,
                       readOnly: true,
+                      backgroundColor: const Color(0xFF17212F),
                       onTap: () async {
                         final date = await showDatePicker(
                           context: context,
@@ -219,6 +256,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       hintText: 'HH:mm',
                       suffixIcon: Icons.access_time,
                       readOnly: true,
+                      backgroundColor: const Color(0xFF17212F),
                       onTap: () async {
                         final time = await showTimePicker(
                           context: context,
@@ -329,6 +367,10 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
               controller: _searchController,
               hintText: 'Ej. Madrid, España...',
               suffixIcon: Icons.search,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _searchLocation(),
+              onSuffixTap: _searchLocation,
+              isLoading: _isSearchingLocation,
             ),
             const SizedBox(height: 8),
             const Text(
@@ -525,10 +567,15 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
     IconData? suffixIcon,
     bool readOnly = false,
     VoidCallback? onTap,
+    VoidCallback? onSuffixTap,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+    bool isLoading = false,
+    Color backgroundColor = const Color(0xFF0F172A),
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
@@ -536,15 +583,34 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
         controller: controller,
         readOnly: readOnly,
         onTap: onTap,
+        textInputAction: textInputAction,
+        onSubmitted: onSubmitted,
         style: const TextStyle(color: textColor, fontSize: 14),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: const TextStyle(color: secondaryTextColor, fontSize: 14),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          suffixIcon: suffixIcon != null
-              ? Icon(suffixIcon, color: secondaryTextColor, size: 20)
-              : null,
+          suffixIcon: isLoading
+              ? const Padding(
+                  padding: EdgeInsets.only(right: 12.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(accentCyan),
+                    ),
+                  ),
+                )
+              : suffixIcon != null
+                  ? onSuffixTap != null
+                      ? IconButton(
+                          onPressed: onSuffixTap,
+                          icon: Icon(suffixIcon, color: secondaryTextColor, size: 20),
+                        )
+                      : Icon(suffixIcon, color: secondaryTextColor, size: 20)
+                  : null,
         ),
       ),
     );
