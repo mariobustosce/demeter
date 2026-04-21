@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:async_wallpaper/async_wallpaper.dart';
@@ -87,9 +88,13 @@ Future<void> refreshWallpaperFromServer({DateTime? date}) async {
     );
     if (svgString == null || svgString.isEmpty) return;
 
-    // Usamos 720x1600 en lugar de 1080x2400 para evitar OOM en dispositivos de gama baja
+    // Obtener el tamaño físico de la pantalla para renderizar en resolución nativa
+    final physicalSize = ui.window.physicalSize;
+    final imgWidth = math.min(physicalSize.width.toInt(), physicalSize.height.toInt());
+    final imgHeight = math.max(physicalSize.width.toInt(), physicalSize.height.toInt());
+
     final pictureInfo = await vg.loadPicture(SvgStringLoader(svgString), null);
-    final image = await pictureInfo.picture.toImage(720, 1600);
+    final image = await pictureInfo.picture.toImage(imgWidth, imgHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     pictureInfo.picture.dispose();
     image.dispose();

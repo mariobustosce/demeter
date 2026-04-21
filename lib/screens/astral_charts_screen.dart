@@ -285,7 +285,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                               Text(
                                 chart['titulo'] ?? chart['title'] ?? 'Carta Astral',
                                 style: const TextStyle(
-                                  color: accentCyan,
+                                  color: Color.fromARGB(255, 239, 242, 243),
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -293,16 +293,16 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
+                                  color: Colors.white.withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.calendar_today, size: 12, color: secondaryTextColor),
+                                    const Icon(Icons.calendar_today, size: 12, color: Color.fromARGB(255, 228, 234, 243)),
                                     const SizedBox(width: 4),
                                     Text('${_formatDate(chart['birth_date'])} ${_formatTime(chart['birth_time'])}', 
-                                      style: const TextStyle(color: secondaryTextColor, fontSize: 12)),
+                                      style: const TextStyle(color: Color.fromARGB(255, 200, 216, 238), fontSize: 12)),
                                   ],
                                 ),
                               ),

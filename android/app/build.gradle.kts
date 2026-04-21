@@ -55,6 +55,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            debugSymbolLevel 'SYMBOL_TABLE'
+        }
     }
 
     signingConfigs {
@@ -74,6 +77,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            uploadSymbols = true
         }
     }
 }

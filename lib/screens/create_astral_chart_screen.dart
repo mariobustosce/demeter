@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/astral_chart_service.dart';
 import '../services/sky_service.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -8,6 +11,14 @@ const accentPurple = Color(0xFF8B5CF6);
 const cardBackground = Color(0xEF0F172A);
 const textColor = Color(0xFFF7FAFC);
 const secondaryTextColor = Color(0xFF94A3B8);
+
+class LocationSuggestion {
+  final String display;
+  final double lat;
+  final double lon;
+
+  LocationSuggestion({required this.display, required this.lat, required this.lon});
+}
 
 class CreateAstralChartScreen extends StatefulWidget {
   const CreateAstralChartScreen({super.key});
@@ -30,7 +41,37 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
   String _selectedTimezone = 'UTC';
   bool _useManualLocation = true;
   bool _isLoading = false;
-  bool _isSearchingLocation = false;
+
+  Future<List<LocationSuggestion>> _searchLocations(String query) async {
+    if (query.length < 3) return []; // Minimum 3 characters to search
+
+    final url = 'https://nominatim.openstreetmap.org/search?format=json&q=$query&limit=5';
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'User-Agent': 'DemeterApp/1.0 (Flutter; Location Search)',
+          'Accept': 'application/json',
+        },
+      );
+      print('API Response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        print('API Response data length: ${data.length}');
+        return data.map((item) => LocationSuggestion(
+          display: item['display_name'] ?? 'Unknown',
+          lat: double.tryParse(item['lat'] ?? '0') ?? 0.0,
+          lon: double.tryParse(item['lon'] ?? '0') ?? 0.0,
+        )).toList();
+      } else {
+        print('API Error: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Exception in _searchLocations: $e');
+      return [];
+    }
+  }
 
   void _submit() async {
     if (_titleController.text.isEmpty ||
@@ -88,39 +129,6 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
           content: Text(response['message'] ?? 'Error desconocido'),
           backgroundColor: Colors.red,
         ),
-      );
-    }
-  }
-
-  Future<void> _searchLocation() async {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) return;
-
-    setState(() {
-      _isSearchingLocation = true;
-    });
-
-    final result = await _skyService.searchLocation(query);
-
-    if (!mounted) return;
-    setState(() {
-      _isSearchingLocation = false;
-    });
-
-    if (result != null) {
-      setState(() {
-        _latController.text = result['lat'].toString();
-        _lonController.text = result['lon'].toString();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Coordenadas encontradas: ${result['lat']}, ${result['lon']}'),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ubicación no encontrada')),
       );
     }
   }
@@ -225,8 +233,8 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                               data: Theme.of(context).copyWith(
                                 colorScheme: const ColorScheme.dark(
                                   primary: accentCyan,
-                                  onPrimary: Colors.black,
-                                  surface: cardBackground,
+                                  onPrimary: Color.fromARGB(255, 97, 35, 112),
+                                  surface: Color.fromARGB(237, 95, 131, 185),
                                   onSurface: textColor,
                                 ),
                               ),
@@ -363,18 +371,59 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
           // Conditional Location Inputs
           if (_useManualLocation) ...[
             _buildLabel('📍', 'Ciudad o Dirección'),
-            _buildTextField(
-              controller: _searchController,
-              hintText: 'Ej. Madrid, España...',
-              suffixIcon: Icons.search,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _searchLocation(),
-              onSuffixTap: _searchLocation,
-              isLoading: _isSearchingLocation,
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: TypeAheadField<LocationSuggestion>(
+                controller: _searchController,
+                builder: (context, controller, focusNode) => TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  style: const TextStyle(color: textColor, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Ej. Madrid, España...',
+                    hintStyle: const TextStyle(color: secondaryTextColor, fontSize: 14),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                suggestionsCallback: _searchLocations,
+                itemBuilder: (context, suggestion) => Container(
+                  color: cardBackground,
+                  child: ListTile(
+                    title: Text(
+                      suggestion.display,
+                      style: const TextStyle(color: textColor, fontSize: 14),
+                    ),
+                  ),
+                ),
+                onSelected: (suggestion) {
+                  _searchController.text = suggestion.display;
+                  _latController.text = suggestion.lat.toString();
+                  _lonController.text = suggestion.lon.toString();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Coordenadas: ${suggestion.lat}, ${suggestion.lon}'),
+                      backgroundColor: Colors.green.shade700,
+                    ),
+                  );
+                },
+                decorationBuilder: (context, child) => Container(
+                  decoration: BoxDecoration(
+                    color: cardBackground,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: child,
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Escribe el lugar de nacimiento para rellenar automáticamente las coordenadas',
+              'Escribe la dirección y selecciona una sugerencia para rellenar automáticamente las coordenadas',
               style: TextStyle(color: secondaryTextColor, fontSize: 12),
             ),
             const SizedBox(height: 16),

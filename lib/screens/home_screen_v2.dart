@@ -288,7 +288,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
             colorScheme: const ColorScheme.dark(
               primary: accentCyan,
               onPrimary: backgroundColor,
-              surface: cardBackground,
+              surface: Color.fromARGB(237, 96, 72, 206),
               onSurface: textColor,
             ),
             dialogTheme: DialogThemeData(backgroundColor: backgroundColor),
