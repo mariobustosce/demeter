@@ -7,9 +7,46 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:179031827037:android:a85300f4226203d031e3b4",
+        "mobilesdk_app_id": "1:179031827037:android:f94b97c5fafea2b531e3b4",
         "android_client_info": {
           "package_name": "com.windowsdemeter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "179031827037-ki8hclmvemgj4djg07orfld4t2ch4dc3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.windowsdemeter",
+            "certificate_hash": "f03ee2e0e078e96a523c71af401316372d5ec13c"
+          }
+        },
+        {
+          "client_id": "179031827037-a30j3hhgvjkgqdupehgsmortejj9olji.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBubrqH9EdgOgGzycjycMVs5Y5oF88kpPg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "179031827037-a30j3hhgvjkgqdupehgsmortejj9olji.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:179031827037:android:a85300f4226203d031e3b4",
+        "android_client_info": {
+          "package_name": "windowsdemeter.com"
         }
       },
       "oauth_client": [
@@ -17,7 +54,7 @@
           "client_id": "179031827037-m4t3aoffo4umcaqdd4klapq6m3bekvi5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.windowsdemeter",
+            "package_name": "windowsdemeter.com",
             "certificate_hash": "f03ee2e0e078e96a523c71af401316372d5ec13c"
           }
         },
