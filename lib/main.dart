@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'screens/login_screen.dart';
@@ -7,11 +8,15 @@ import 'screens/splash_screen.dart';
 import 'screens/celestial_live_wallpaper.dart';
 import 'screens/home_screen_v2.dart';
 import 'screens/store_screen.dart';
-import 'services/wallpaper_refresh_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Filtrar logs en producción para mejor rendimiento
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
   
   // Inicializamos Firebase
   await Firebase.initializeApp(
@@ -20,8 +25,6 @@ void main() async {
 
   // Inicializamos Mobile Ads para AdMob
   await MobileAds.instance.initialize();
-
-  await initializeWallpaperRefreshWorker();
 
   runApp(const MyApp());
 }

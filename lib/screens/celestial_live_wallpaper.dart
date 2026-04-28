@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -35,7 +33,6 @@ class _CelestialLiveWallpaperState extends State<CelestialLiveWallpaper>
   static const _channel = MethodChannel('windowsdemeter.com/wallpaper');
 
   final SkyService _skyService = SkyService();
-  Timer? _refreshTimer;
   String? _svgString;
   double _xOffset = 0.5;
   bool _loading = true;
@@ -46,16 +43,11 @@ class _CelestialLiveWallpaperState extends State<CelestialLiveWallpaper>
     WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler(_handleWallpaperChannel);
     _refreshSvg();
-    _refreshTimer = Timer.periodic(
-      kWallpaperRefreshInterval,
-      (_) => _refreshSvg(),
-    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _refreshTimer?.cancel();
     _channel.setMethodCallHandler(null);
     super.dispose();
   }

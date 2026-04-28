@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -167,8 +168,54 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
            _updateSkyData();
+           _updateWallpaperIfNeeded();
         }
       });
+    }
+  }
+
+  Future<void> _updateWallpaperIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Verificar si hay configuración de wallpaper guardada (lat/lon/target)
+      final hasWallpaperConfig = prefs.containsKey(kWallpaperLatKey) && 
+                                  prefs.containsKey(kWallpaperLonKey) &&
+                                  prefs.containsKey(kWallpaperTargetKey);
+      
+      if (!hasWallpaperConfig) {
+        if (kDebugMode) {
+          debugPrint('No hay configuración de wallpaper guardada');
+        }
+        return;
+      }
+
+      final lastRefreshStr = prefs.getString(kWallpaperLastRefreshKey);
+      if (lastRefreshStr != null) {
+        final lastRefresh = DateTime.parse(lastRefreshStr);
+        final timeSinceLastRefresh = DateTime.now().difference(lastRefresh);
+        
+        // Siempre actualizar si el usuario lo abre para que pueda probarlo
+        // (límite bajado a 0 temporalmente)
+        if (timeSinceLastRefresh.inMinutes < 0) {
+          if (kDebugMode) {
+            debugPrint('Wallpaper actualizado hace ${timeSinceLastRefresh.inMinutes} minutos, esperando...');
+          }
+          return;
+        }
+      }
+
+      if (kDebugMode) {
+        debugPrint('Actualizando wallpaper del sistema (${lastRefreshStr == null ? "primera vez" : "actualización periódica"})...');
+      }
+      await refreshWallpaperFromServer(date: DateTime.now());
+      if (kDebugMode) {
+        debugPrint('Wallpaper del sistema actualizado ✓');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error actualizando wallpaper: $e');
+      }
     }
   }
 
@@ -190,7 +237,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       final double? lng = double.tryParse(_lonController.text);
       if (lat == null || lng == null) return false;
 
-      // Asegurar que el Workmanager siempre tenga las últimas coordenadas
+      // Guardar las últimas coordenadas para usar al actualizar wallpaper
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setDouble('wallpaper_lat', lat);
@@ -1340,7 +1387,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     );
 
     await persistWallpaperSettings(lat: lat, lon: lon, target: target);
-    await scheduleWallpaperRefresh(initialDelay: const Duration(minutes: 2));
 
     if (!Platform.isAndroid) {
       if (ctx.mounted) {

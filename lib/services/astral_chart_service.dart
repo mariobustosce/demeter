@@ -74,4 +74,31 @@ class AstralChartService {
       return {'success': false, 'message': 'Excepción: $e'};
     }
   }
+
+  // DELETE /api/user/charts/{id}
+  Future<Map<String, dynamic>> deleteChart(int chartId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/user/charts/$chartId'),
+        headers: await _getHeaders(),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Carta astral eliminada exitosamente',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Error al eliminar la carta astral',
+        };
+      }
+    } catch (e) {
+      print("Error deleting astral chart: $e");
+      return {'success': false, 'message': 'Excepción: $e'};
+    }
+  }
 }
