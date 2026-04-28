@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/sky_service.dart';
-import '../services/wallpaper_refresh_service.dart';
 
 class CelestialScreenSaver extends StatefulWidget {
   final String? svgString;
@@ -29,7 +26,6 @@ class _CelestialScreenSaverState extends State<CelestialScreenSaver>
   String? _svgString;
   bool _loading = true;
   String? _error;
-  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -41,13 +37,11 @@ class _CelestialScreenSaverState extends State<CelestialScreenSaver>
     } else {
       _fetchSvg();
     }
-    _refreshTimer = Timer.periodic(kWallpaperRefreshInterval, (_) => _fetchSvg());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _refreshTimer?.cancel();
     super.dispose();
   }
 

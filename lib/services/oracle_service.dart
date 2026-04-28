@@ -163,4 +163,38 @@ class OracleService {
       rethrow;
     }
   }
+
+  // DELETE /api/user/history/{id}
+  Future<Map<String, dynamic>> deleteConsultation(int consultationId) async {
+    final token = await _authService.getToken();
+    final url = Uri.parse('$_baseUrl/user/history/$consultationId');
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Consulta eliminada exitosamente',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Error al eliminar la consulta',
+        };
+      }
+    } catch (e) {
+      print("Error deleting consultation: $e");
+      return {'success': false, 'message': 'Excepción: $e'};
+    }
+  }
 }

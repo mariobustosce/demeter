@@ -42,6 +42,97 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
     }
   }
 
+  Future<void> _confirmDelete(BuildContext context, dynamic chart) async {
+    final chartId = chart['id'];
+    final chartTitle = chart['titulo'] ?? chart['title'] ?? 'esta carta astral';
+
+    if (chartId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: No se pudo identificar la carta astral'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 12),
+            Text('Confirmar Eliminación', style: TextStyle(color: textColor)),
+          ],
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar "$chartTitle"?\n\nEsta acción no se puede deshacer.',
+          style: const TextStyle(color: secondaryTextColor, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar', style: TextStyle(color: secondaryTextColor)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    // Mostrar indicador de carga
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Eliminando carta astral...'),
+          ],
+        ),
+        duration: Duration(seconds: 30),
+      ),
+    );
+
+    final result = await _chartService.deleteChart(chartId);
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Carta astral eliminada exitosamente'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadCharts(); // Recargar la lista
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Error al eliminar la carta astral'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -450,9 +541,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                         border: Border.all(color: Colors.red.withOpacity(0.2)),
                       ),
                       child: IconButton(
-                        onPressed: () {
-                          // TODO: Implementar eliminación
-                        },
+                        onPressed: () => _confirmDelete(context, chart),
                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                       ),
                     ),

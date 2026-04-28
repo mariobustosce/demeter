@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/oracle_service.dart';
 import 'new_consultation_screen.dart';
 import 'compatibility_screen.dart';
+import 'consultation_detail_screen.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -40,6 +41,96 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
         _consultations = historial;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, dynamic consultation) async {
+    final consultationId = consultation['id'];
+    final pregunta = consultation['pregunta'] ?? 'esta consulta';
+
+    if (consultationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: No se pudo identificar la consulta'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 12),
+            Text('Confirmar Eliminación', style: TextStyle(color: textColor)),
+          ],
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar la consulta "$pregunta"?\n\nEsta acción no se puede deshacer.',
+          style: const TextStyle(color: secondaryTextColor, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar', style: TextStyle(color: secondaryTextColor)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Eliminando consulta...'),
+          ],
+        ),
+        duration: Duration(seconds: 30),
+      ),
+    );
+
+    final result = await _oracleService.deleteConsultation(consultationId);
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Consulta eliminada exitosamente'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadConsultations();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Error al eliminar la consulta'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
   }
 
@@ -268,20 +359,69 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                       bottomRight: Radius.circular(12),
                     ),
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
                     children: [
-                      const Icon(Icons.auto_awesome, color: accentPurple, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          respuesta,
-                          style: const TextStyle(
-                            color: textColor,
-                            fontSize: 14,
-                            height: 1.5,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.auto_awesome, color: accentPurple, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              respuesta,
+                              style: const TextStyle(
+                                color: textColor,
+                                fontSize: 14,
+                                height: 1.5,
+                              ),
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ConsultationDetailScreen(consultation: item),
+                                  ),
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: accentCyan,
+                                side: BorderSide(color: accentCyan.withOpacity(0.3)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              icon: const Icon(Icons.visibility, size: 16),
+                              label: const Text(
+                                'Ver Detalle',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.withOpacity(0.2)),
+                            ),
+                            child: IconButton(
+                              onPressed: () => _confirmDelete(context, item),
+                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                              padding: const EdgeInsets.all(12),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
