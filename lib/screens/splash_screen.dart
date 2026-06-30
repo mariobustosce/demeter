@@ -21,15 +21,22 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuth() async {
     await Future.delayed(const Duration(seconds: 2));
 
-    final token = await _authService.getToken();
-    final user = token == null || token.isEmpty
-        ? null
-        : await _authService.getMe();
+    try {
+      final token = await _authService.getToken();
+      final user = token == null || token.isEmpty
+          ? null
+          : await _authService.getMe();
 
-    if (mounted) {
-      if (user != null) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
+      if (mounted) {
+        if (user != null) {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      }
+    } catch (e) {
+      // Si falla la verificación (red, token inválido, etc.), ir al login
+      if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');
       }
     }

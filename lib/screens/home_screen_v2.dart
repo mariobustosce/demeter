@@ -175,6 +175,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   }
 
   Future<void> _updateWallpaperIfNeeded() async {
+    // Evitar ejecución concurrente con _applyWallpaper
+    if (_isApplyingWallpaper) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       
@@ -195,9 +198,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
         final lastRefresh = DateTime.parse(lastRefreshStr);
         final timeSinceLastRefresh = DateTime.now().difference(lastRefresh);
         
-        // Siempre actualizar si el usuario lo abre para que pueda probarlo
-        // (límite bajado a 0 temporalmente)
-        if (timeSinceLastRefresh.inMinutes < 0) {
+        // Evitar refrescar si se hizo hace menos de 15 minutos
+        if (timeSinceLastRefresh.inMinutes < 15) {
           if (kDebugMode) {
             debugPrint('Wallpaper actualizado hace ${timeSinceLastRefresh.inMinutes} minutos, esperando...');
           }
@@ -219,8 +221,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     }
   }
 
-  // Variable para evitar peticiones redundantes
+  // Variables para evitar peticiones redundantes
   bool _isUpdating = false;
+  bool _isApplyingWallpaper = false;
 
   Future<bool> _updateSkyData({bool initial = false, VoidCallback? onRefreshed}) async {
     if (_isUpdating) return false;
@@ -1379,6 +1382,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
   }
 
   Future<void> _applyWallpaper(BuildContext ctx, WallpaperTarget target) async {
+    // Evitar ejecución concurrente
+    if (_isApplyingWallpaper) return;
+    _isApplyingWallpaper = true;
+
     final lat = double.tryParse(_latController.text) ?? -33.5227;
     final lon = double.tryParse(_lonController.text) ?? -70.5983;
     final dt = DateTime(
@@ -1439,6 +1446,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
           ),
         );
       }
+    } finally {
+      _isApplyingWallpaper = false;
     }
   }
 

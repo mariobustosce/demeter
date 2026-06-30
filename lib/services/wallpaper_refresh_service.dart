@@ -99,9 +99,10 @@ Future<void> refreshWallpaperFromServer({DateTime? date}) async {
     }
 
     // Obtener el tamaño físico de la pantalla para renderizar en resolución nativa
-    final physicalSize = ui.window.physicalSize;
-    final imgWidth = math.min(physicalSize.width.toInt(), physicalSize.height.toInt());
-    final imgHeight = math.max(physicalSize.width.toInt(), physicalSize.height.toInt());
+    final physicalSize = ui.PlatformDispatcher.instance.views.first.physicalSize;
+    // Proteger contra tamaño (0,0) si se ejecuta en background sin vista activa
+    final imgWidth = math.max(math.min(physicalSize.width.toInt(), physicalSize.height.toInt()), 1080);
+    final imgHeight = math.max(math.max(physicalSize.width.toInt(), physicalSize.height.toInt()), 1920);
 
     if (kDebugMode) {
       debugPrint('Generando imagen PNG: ${imgWidth}x$imgHeight');
