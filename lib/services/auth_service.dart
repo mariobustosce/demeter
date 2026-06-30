@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fba;
@@ -159,16 +160,25 @@ class AuthService {
         throw Exception('No se pudo obtener el token de identidad de Firebase.');
       }
 
+      // DEBUG: verificar qué tokens retorna Google
+      debugPrint('[Google Login] idToken: ${googleAuth.idToken != null ? "OK (${googleAuth.idToken!.length} chars)" : "NULL"}');
+      debugPrint('[Google Login] accessToken: ${googleAuth.accessToken != null ? "OK" : "NULL"}');
+      debugPrint('[Google Login] Firebase idToken: OK (${idToken.length} chars)');
+
+      final tokenToSend = googleAuth.accessToken;
+      debugPrint('[Google Login] Token enviado al backend: ${tokenToSend != null ? "OK" : "NULL"}');
+
       final response = await http.post(
         Uri.parse('$_baseUrl/login/google'),
         headers: await _getHeaders(),
         body: jsonEncode({
-          // ¡EUREKA! Tu backend de Laravel ("sanctum" o "socialite") espera validar el token original de Google
-          // y nosotros le estábamos enviando el ID token interno the Firebase.
-          'token': googleAuth.idToken ?? googleAuth.accessToken,
+          'token': tokenToSend,
           'device_name': ApiConfig.deviceName,
         }),
       );
+
+      debugPrint('[Google Login] HTTP status: ${response.statusCode}');
+      debugPrint('[Google Login] Respuesta backend: ${response.body}');
 
       final body = jsonDecode(response.body) as Map<String, dynamic>;
 

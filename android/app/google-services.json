@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "179031827037-1k5r57o36ja4dg00ngd403g2idr4tl2c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.windowsdemeter",
+            "certificate_hash": "72489bd1fb3bd0b03b57856242805dd808f04661"
+          }
+        },
+        {
           "client_id": "179031827037-ki8hclmvemgj4djg07orfld4t2ch4dc3.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

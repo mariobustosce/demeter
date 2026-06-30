@@ -149,6 +149,54 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       // Una vez la ubicación fue resuelta (o falló), hacemos una única llamada a las API
       await _updateSkyData(initial: true);
     }
+
+    // Al abrir la app: si fue reiniciada por MIUI al cambiar el wallpaper solo mostramos
+    // el aviso de éxito. Si es una apertura normal y hay config guardada, actualizamos.
+    if (mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final justApplied = prefs.getBool(kWallpaperJustAppliedKey) ?? false;
+      if (justApplied) {
+        _checkAndShowWallpaperAppliedNotice();
+      } else {
+        _updateWallpaperOnStartup();
+      }
+    }
+  }
+
+  /// Actualiza el wallpaper automáticamente al abrir la app (solo si hay config guardada).
+  Future<void> _updateWallpaperOnStartup() async {
+    if (_isApplyingWallpaper) return;
+    if (!Platform.isAndroid) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasConfig = prefs.containsKey(kWallpaperLatKey) &&
+          prefs.containsKey(kWallpaperTargetKey);
+      if (!hasConfig) return;
+      if (kDebugMode) debugPrint('Auto-actualizando wallpaper al abrir la app...');
+      await refreshWallpaperFromServer(date: DateTime.now());
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error auto-actualizando wallpaper: $e');
+    }
+  }
+
+  Future<void> _checkAndShowWallpaperAppliedNotice() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final justApplied = prefs.getBool(kWallpaperJustAppliedKey) ?? false;
+      if (!justApplied) return;
+      await prefs.remove(kWallpaperJustAppliedKey);
+      if (!mounted) return;
+      // Pequeño delay para que la UI esté completamente visible
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Fondo celestial aplicado! ✨'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } catch (_) {}
   }
 
   @override
@@ -168,56 +216,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
            _updateSkyData();
-           _updateWallpaperIfNeeded();
         }
       });
-    }
-  }
-
-  Future<void> _updateWallpaperIfNeeded() async {
-    // Evitar ejecución concurrente con _applyWallpaper
-    if (_isApplyingWallpaper) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Verificar si hay configuración de wallpaper guardada (lat/lon/target)
-      final hasWallpaperConfig = prefs.containsKey(kWallpaperLatKey) && 
-                                  prefs.containsKey(kWallpaperLonKey) &&
-                                  prefs.containsKey(kWallpaperTargetKey);
-      
-      if (!hasWallpaperConfig) {
-        if (kDebugMode) {
-          debugPrint('No hay configuración de wallpaper guardada');
-        }
-        return;
-      }
-
-      final lastRefreshStr = prefs.getString(kWallpaperLastRefreshKey);
-      if (lastRefreshStr != null) {
-        final lastRefresh = DateTime.parse(lastRefreshStr);
-        final timeSinceLastRefresh = DateTime.now().difference(lastRefresh);
-        
-        // Evitar refrescar si se hizo hace menos de 15 minutos
-        if (timeSinceLastRefresh.inMinutes < 15) {
-          if (kDebugMode) {
-            debugPrint('Wallpaper actualizado hace ${timeSinceLastRefresh.inMinutes} minutos, esperando...');
-          }
-          return;
-        }
-      }
-
-      if (kDebugMode) {
-        debugPrint('Actualizando wallpaper del sistema (${lastRefreshStr == null ? "primera vez" : "actualización periódica"})...');
-      }
-      await refreshWallpaperFromServer(date: DateTime.now());
-      if (kDebugMode) {
-        debugPrint('Wallpaper del sistema actualizado ✓');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error actualizando wallpaper: $e');
-      }
     }
   }
 
