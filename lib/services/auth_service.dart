@@ -178,8 +178,8 @@ class AuthService {
         }),
       );
 
+      // El body trae el token Sanctum: no se registra.
       debugPrint('[Google Login] HTTP status: ${response.statusCode}');
-      debugPrint('[Google Login] Respuesta backend: ${response.body}');
 
       final body = jsonDecode(response.body) as Map<String, dynamic>;
 

@@ -14,12 +14,8 @@ import 'firebase_options.dart';
   
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Filtrar logs en producción para mejor rendimiento
-  if (kReleaseMode) {
-    debugPrint = (String? message, {int? wrapWidth}) {};
-  }
-  
+  _silenceDebugPrintInRelease();
+
   // Firebase sí debe estar listo antes del primer frame: el login lo usa.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -40,9 +36,18 @@ Future<void> _initializeAds() async {
   }
 }
 
+/// En release `debugPrint` no imprime nada. Se aplica en cada entry point
+/// porque cada isolate tiene su propia copia de la variable.
+void _silenceDebugPrintInRelease() {
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+}
+
 @pragma('vm:entry-point')
 void wallpaperMain() {
   WidgetsFlutterBinding.ensureInitialized();
+  _silenceDebugPrintInRelease();
   runApp(const CelestialLiveWallpaperApp());
 }
 

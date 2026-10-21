@@ -96,8 +96,7 @@ class OracleService {
         body: jsonEncode(payload),
       );
 
-      debugPrint("DEBUG COMPATIBILIDAD CODE: ${response.statusCode}");
-      debugPrint("DEBUG COMPATIBILIDAD BODY: ${response.body}");
+      debugPrint("Compatibilidad: status ${response.statusCode}");
 
       final responseData = jsonDecode(response.body);
 
@@ -155,8 +154,9 @@ class OracleService {
         }
         return [];
       } else {
-        debugPrint("Error obteniendo historial: ${response.statusCode} - ${response.body}");
-        throw Exception("Error ${response.statusCode}: ${response.body}");
+        // Sin el body: trae consultas del usuario y se propagaría al log del catch.
+        debugPrint("Error obteniendo historial: ${response.statusCode}");
+        throw Exception("Error ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Excepción al obtener historial del oráculo: $e");
