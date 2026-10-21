@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
 import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -19,26 +20,28 @@ class _SplashScreenState extends State<SplashScreen> {
 
   // Verifica si ya existe un token almacenado
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2));
+    // La espera mínima del logo corre en paralelo con la verificación de
+    // sesión, no antes: así el splash dura lo que tarde lo más lento de los
+    // dos, en lugar de sumar ambos tiempos.
+    final results = await Future.wait<Object?>([
+      Future<void>.delayed(kSplashMinDuration),
+      _resolveSession(),
+    ]);
 
+    if (!mounted) return;
+    final hasSession = results[1] == true;
+    Navigator.pushReplacementNamed(context, hasSession ? '/home' : '/login');
+  }
+
+  /// `true` si hay un token válido. Cualquier falla (red, token expirado)
+  /// cuenta como sesión ausente y manda al login.
+  Future<bool> _resolveSession() async {
     try {
       final token = await _authService.getToken();
-      final user = token == null || token.isEmpty
-          ? null
-          : await _authService.getMe();
-
-      if (mounted) {
-        if (user != null) {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          Navigator.pushReplacementNamed(context, '/login');
-        }
-      }
-    } catch (e) {
-      // Si falla la verificación (red, token inválido, etc.), ir al login
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
+      if (token == null || token.isEmpty) return false;
+      return await _authService.getMe() != null;
+    } catch (_) {
+      return false;
     }
   }
 

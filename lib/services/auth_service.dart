@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fba;
 import 'package:google_sign_in/google_sign_in.dart';
+import '../config/app_config.dart';
 import '../models/auth_response.dart';
 import '../models/user.dart';
 import 'api_config.dart';
@@ -201,10 +202,11 @@ class AuthService {
 
   Future<User?> getMe() async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/me'),
-        headers: await _getHeaders(),
-      );
+      // Con timeout: esta llamada bloquea el splash, y sin límite una red que
+      // no responde deja la app colgada en el logo indefinidamente.
+      final response = await http
+          .get(Uri.parse('$_baseUrl/me'), headers: await _getHeaders())
+          .timeout(kAuthTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -212,7 +214,7 @@ class AuthService {
         return User.fromJson(userData);
       }
     } catch (e) {
-      print("Error obteniendo usuario: $e");
+      debugPrint("Error obteniendo usuario: $e");
     }
     return null;
   }

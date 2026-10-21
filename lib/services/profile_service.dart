@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/referral_payload.dart';
 import '../models/user.dart';
@@ -57,7 +58,7 @@ class ProfileService {
       }
       return null;
     } catch (e) {
-      print("Error obteniendo perfil: $e");
+      debugPrint("Error obteniendo perfil: $e");
       return null;
     }
   }
@@ -75,7 +76,7 @@ class ProfileService {
       }
       return null;
     } catch (e) {
-      print('Error obteniendo referido: $e');
+      debugPrint('Error obteniendo referido: $e');
       return null;
     }
   }
@@ -90,7 +91,7 @@ class ProfileService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error actualizando perfil: $e");
+      debugPrint("Error actualizando perfil: $e");
       return false;
     }
   }
@@ -125,7 +126,7 @@ class ProfileService {
         'message': _readErrorMessage(data, 'Error desconocido'),
       };
     } catch (e) {
-      print("Error actualizando contraseña: $e");
+      debugPrint("Error actualizando contraseña: $e");
       return {'success': false, 'message': 'Error de conexión'};
     }
   }
@@ -140,7 +141,7 @@ class ProfileService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print("Error eliminando cuenta: $e");
+      debugPrint("Error eliminando cuenta: $e");
       return false;
     }
   }

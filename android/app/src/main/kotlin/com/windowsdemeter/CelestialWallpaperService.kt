@@ -22,7 +22,7 @@ class CelestialWallpaperService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
             
-            var engine = FlutterEngineCache.getInstance().get("celestial_engine")
+            var engine = FlutterEngineCache.getInstance().get(MainActivity.WALLPAPER_ENGINE_ID)
             
             if (engine == null) {
                 engine = FlutterEngine(this@CelestialWallpaperService)
@@ -41,7 +41,8 @@ class CelestialWallpaperService : WallpaperService() {
                     "wallpaperMain"
                 )
                 engine.dartExecutor.executeDartEntrypoint(entrypoint)
-                FlutterEngineCache.getInstance().put("celestial_engine", engine)
+                FlutterEngineCache.getInstance()
+                    .put(MainActivity.WALLPAPER_ENGINE_ID, engine)
             }
             
             flutterEngine = engine

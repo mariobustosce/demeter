@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "179031827037-omfu36u2msra0bhur5iuuev26m8tqtm8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.windowsdemeter",
+            "certificate_hash": "5bb5f2c4fe361682373f9bf53b45cd482008d681"
+          }
+        },
+        {
           "client_id": "179031827037-a30j3hhgvjkgqdupehgsmortejj9olji.apps.googleusercontent.com",
           "client_type": 3
         }

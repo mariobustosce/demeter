@@ -3,8 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+import '../services/live_wallpaper_service.dart';
 import '../services/sky_service.dart';
 import '../services/wallpaper_refresh_service.dart';
+
+/// Tiempo mínimo entre descargas del mapa dentro del fondo animado.
+///
+/// El fondo se hace visible en cada desbloqueo de pantalla; sin este límite
+/// pedíamos el SVG al servidor decenas de veces por hora.
+const Duration _kLiveRefreshInterval = Duration(minutes: 15);
 
 class CelestialLiveWallpaperApp extends StatelessWidget {
   const CelestialLiveWallpaperApp({super.key});
@@ -30,25 +38,25 @@ class CelestialLiveWallpaper extends StatefulWidget {
 
 class _CelestialLiveWallpaperState extends State<CelestialLiveWallpaper>
     with WidgetsBindingObserver {
-  static const _channel = MethodChannel('windowsdemeter.com/wallpaper');
-
   final SkyService _skyService = SkyService();
   String? _svgString;
   double _xOffset = 0.5;
   bool _loading = true;
+  bool _fetching = false;
+  DateTime? _lastFetch;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _channel.setMethodCallHandler(_handleWallpaperChannel);
-    _refreshSvg();
+    kWallpaperChannel.setMethodCallHandler(_handleWallpaperChannel);
+    _refreshSvg(force: true);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _channel.setMethodCallHandler(null);
+    kWallpaperChannel.setMethodCallHandler(null);
     super.dispose();
   }
 
@@ -59,11 +67,20 @@ class _CelestialLiveWallpaperState extends State<CelestialLiveWallpaper>
     }
   }
 
-  Future<void> _refreshSvg() async {
+  /// Descarga el mapa del cielo. Con [force] en `false` respeta
+  /// [_kLiveRefreshInterval] y evita descargas solapadas.
+  Future<void> _refreshSvg({bool force = false}) async {
+    if (_fetching) return;
+
+    if (!force && _lastFetch != null) {
+      if (DateTime.now().difference(_lastFetch!) < _kLiveRefreshInterval) return;
+    }
+
+    _fetching = true;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final lat = prefs.getDouble(kWallpaperLatKey) ?? -33.5227;
-      final lon = prefs.getDouble(kWallpaperLonKey) ?? -70.5983;
+      final lat = prefs.getDouble(kWallpaperLatKey) ?? kDefaultLatitude;
+      final lon = prefs.getDouble(kWallpaperLonKey) ?? kDefaultLongitude;
       final svg = await _skyService.getMapSvgMobile(
         lat: lat,
         lng: lon,
@@ -72,26 +89,36 @@ class _CelestialLiveWallpaperState extends State<CelestialLiveWallpaper>
 
       if (!mounted) return;
       setState(() {
-        _svgString = svg;
+        // Si la descarga falla mantenemos el último cielo dibujado en pantalla
+        // en lugar de dejar el fondo en negro.
+        if (svg != null && svg.isNotEmpty) {
+          _svgString = svg;
+          _lastFetch = DateTime.now();
+        }
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-      });
+      setState(() => _loading = false);
+    } finally {
+      _fetching = false;
     }
   }
 
   Future<void> _handleWallpaperChannel(MethodCall call) async {
-    if (call.method != 'onOffsetsChanged') return;
+    switch (call.method) {
+      case 'onOffsetsChanged':
+        final args = Map<String, dynamic>.from(call.arguments as Map);
+        if (!mounted) return;
+        setState(() {
+          _xOffset = (args['x'] as num?)?.toDouble() ?? 0.5;
+        });
 
-    final args = Map<String, dynamic>.from(call.arguments as Map);
-    if (!mounted) return;
-
-    setState(() {
-      _xOffset = (args['x'] as num?)?.toDouble() ?? 0.5;
-    });
+      // La app en primer plano acaba de recibir datos nuevos del cielo, así
+      // que aprovechamos para redibujar sin esperar el intervalo.
+      case 'updateData':
+        await _refreshSvg(force: true);
+    }
   }
 
   @override

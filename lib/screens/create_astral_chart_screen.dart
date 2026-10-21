@@ -54,21 +54,21 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
           'Accept': 'application/json',
         },
       );
-      print('API Response status: ${response.statusCode}');
+      debugPrint('API Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List;
-        print('API Response data length: ${data.length}');
+        debugPrint('API Response data length: ${data.length}');
         return data.map((item) => LocationSuggestion(
           display: item['display_name'] ?? 'Unknown',
           lat: double.tryParse(item['lat'] ?? '0') ?? 0.0,
           lon: double.tryParse(item['lon'] ?? '0') ?? 0.0,
         )).toList();
       } else {
-        print('API Error: ${response.body}');
+        debugPrint('API Error: ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Exception in _searchLocations: $e');
+      debugPrint('Exception in _searchLocations: $e');
       return [];
     }
   }

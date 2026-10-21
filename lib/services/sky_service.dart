@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import '../config/app_config.dart';
+import 'api_config.dart';
 import 'auth_service.dart';
 
 class SkyService {
-  final String _baseUrl = "https://windowsdemeter.com/api";
+  final String _baseUrl = ApiConfig.baseUrl;
   final AuthService _authService = AuthService();
 
   Future<Position?> _determinePosition() async {
@@ -23,7 +26,15 @@ class SkyService {
 
     if (permission == LocationPermission.deniedForever) return null;
 
-    return await Geolocator.getCurrentPosition();
+    try {
+      // Sin timeLimit un GPS frío puede no responder nunca y colgar la carga.
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(timeLimit: kLocationTimeout),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint("GPS no disponible a tiempo: $e");
+      return null;
+    }
   }
 
   Future<Map<String, dynamic>?> getMapApiData({
@@ -34,9 +45,8 @@ class SkyService {
     try {
       final token = await _authService.getToken();
 
-      // Santiago, La Florida, Chile por defecto (Hemisferio Sur)
-      double latitude = lat ?? -33.5227;
-      double longitude = lng ?? -70.5983;
+      double latitude = lat ?? kDefaultLatitude;
+      double longitude = lng ?? kDefaultLongitude;
 
       if (lat == null || lng == null) {
         Position? position = await _determinePosition();
@@ -56,9 +66,9 @@ class SkyService {
       final manualUrlString = '$_baseUrl/astronomy/map-api-mobile?lat=${latitude}&lon=${longitude}&date=$dateStr&time=$timeStr&_t=${DateTime.now().millisecondsSinceEpoch}';
       final uri = Uri.parse(manualUrlString);
 
-      print("--- DEBUG API DATA ---");
-      print("Flutter enviando a: $manualUrlString");
-      print("Hora exacta tomada de Flutter: $timeStr");
+      debugPrint("--- DEBUG API DATA ---");
+      debugPrint("Flutter enviando a: $manualUrlString");
+      debugPrint("Hora exacta tomada de Flutter: $timeStr");
 
       final response = await http
           .get(
@@ -68,16 +78,16 @@ class SkyService {
               if (token != null) 'Authorization': 'Bearer $token',
             },
           )
-          .timeout(const Duration(seconds: 45));
+          .timeout(kApiTimeout);
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        print("Error obteniendo datos API (Status ${response.statusCode})");
+        debugPrint("Error obteniendo datos API (Status ${response.statusCode})");
         return null;
       }
     } catch (e) {
-      print("Error cargando los datos API: $e");
+      debugPrint("Error cargando los datos API: $e");
       return null;
     }
   }
@@ -92,9 +102,8 @@ class SkyService {
     try {
       final token = await _authService.getToken();
 
-      // Santiago, La Florida, Chile por defecto (Hemisferio Sur)
-      double latitude = lat ?? -33.5227;
-      double longitude = lng ?? -70.5983;
+      double latitude = lat ?? kDefaultLatitude;
+      double longitude = lng ?? kDefaultLongitude;
 
       if (lat == null || lng == null) {
         Position? position = await _determinePosition();
@@ -114,9 +123,9 @@ class SkyService {
       final manualUrlString = '$_baseUrl/astronomy/map-svg-mobile?lat=${latitude}&lon=${longitude}&date=$dateStr&time=$timeStr&_t=${DateTime.now().millisecondsSinceEpoch}';
       final uri = Uri.parse(manualUrlString);
 
-      print("--- DEBUG MAP SVG ---");
-      print("Flutter enviando a: $manualUrlString");
-      print("Hora exacta tomada de Flutter: $timeStr");
+      debugPrint("--- DEBUG MAP SVG ---");
+      debugPrint("Flutter enviando a: $manualUrlString");
+      debugPrint("Hora exacta tomada de Flutter: $timeStr");
 
       final response = await http
           .get(
@@ -126,7 +135,7 @@ class SkyService {
               if (token != null) 'Authorization': 'Bearer $token',
             },
           )
-          .timeout(const Duration(seconds: 45));
+          .timeout(kApiTimeout);
 
       if (response.statusCode == 200) {
         try {
@@ -139,8 +148,10 @@ class SkyService {
         }
         return response.body;
       }
+      debugPrint("Error obteniendo el SVG (Status ${response.statusCode})");
       return null;
     } catch (e) {
+      debugPrint("Error cargando el SVG del cielo: $e");
       return null;
     }
   }
@@ -188,12 +199,12 @@ class SkyService {
           };
         }
       } else {
-        print(
+        debugPrint(
           "Error buscando ubicación (Status ${response.statusCode}): ${response.body}",
         );
       }
     } catch (e) {
-      print("Error buscando ubicación: $e");
+      debugPrint("Error buscando ubicación: $e");
     }
     return null;
   }

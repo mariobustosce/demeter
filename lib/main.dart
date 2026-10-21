@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +11,7 @@ import 'screens/celestial_live_wallpaper.dart';
 import 'screens/home_screen_v2.dart';
 import 'screens/store_screen.dart';
 import 'firebase_options.dart';
-
+  
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -18,15 +20,24 @@ void main() async {
     debugPrint = (String? message, {int? wrapWidth}) {};
   }
   
-  // Inicializamos Firebase
+  // Firebase sí debe estar listo antes del primer frame: el login lo usa.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Inicializamos Mobile Ads para AdMob
-  await MobileAds.instance.initialize();
+  // AdMob no bloquea el arranque: el banner se carga cuando el SDK esté listo,
+  // y esperarlo acá retrasaba el primer frame entre 0,5 y 2 segundos.
+  unawaited(_initializeAds());
 
   runApp(const MyApp());
+}
+
+Future<void> _initializeAds() async {
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e) {
+    debugPrint('MobileAds init falló: $e');
+  }
 }
 
 @pragma('vm:entry-point')

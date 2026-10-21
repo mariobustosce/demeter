@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:async_wallpaper/async_wallpaper.dart';
+import '../config/ads_config.dart';
+import '../config/app_config.dart';
 import '../services/auth_service.dart';
+import '../services/live_wallpaper_service.dart';
 import '../services/sky_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
@@ -56,7 +60,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
 
   void _loadBannerAd() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // TODO: reemplazar con tu Ad Unit ID real
+      adUnitId: AdsConfig.bannerAdUnitId,
       request: const AdRequest(),
       size: AdSize.banner,
       listener: BannerAdListener(
@@ -88,20 +92,39 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
         }
       });
 
-    // Asignar futures simulados primero para que FutureBuilder espere sin fallar
+    // Futures placeholder para que los FutureBuilder muestren "cargando" sin
+    // fallar. El de perfil usa un Completer que nunca completa: un
+    // Future.delayed dejaría un timer vivo durante 24 horas.
     _canvasMapFuture = Future.value(null);
     _svgFuture = Future.value(null);
-    _astralProfileFuture = Future<Map<String, dynamic>>.delayed(
-      const Duration(
-        days: 1,
-      ), // Simula carga perpetua hasta que respondan los correctos
-      () => {},
-    );
+    _astralProfileFuture = Completer<Map<String, dynamic>>().future;
 
     _initLocationAndData();
   }
 
-  Future<void> _initLocationAndData() async {
+  /// Resuelve ubicación, recarga el cielo y —si el usuario lo habilitó—
+  /// refresca el fondo del sistema.
+  ///
+  /// Es el único punto de entrada del refresco: lo llama `initState` al abrir
+  /// la app y el pull-to-refresh del mapa. En ambos casos [manual] es `true`,
+  /// así que el fondo se actualiza sin esperar el intervalo.
+  Future<void> _initLocationAndData({bool manual = true}) async {
+    // El pull-to-refresh puede dispararse mientras la carga inicial sigue en
+    // curso; dos peticiones de ubicación simultáneas hacen fallar a
+    // LocationManager.
+    if (_isReloading) return;
+    _isReloading = true;
+
+    try {
+      await _reloadEverything(manual: manual);
+    } finally {
+      _isReloading = false;
+    }
+  }
+
+  bool _isReloading = false;
+
+  Future<void> _reloadEverything({required bool manual}) async {
     final now = DateTime.now();
 
     if (mounted) {
@@ -114,8 +137,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       });
     }
 
-    String nextLat = "-33.4377";
-    String nextLon = "-70.6511";
+    String nextLat = kDefaultLatitude.toString();
+    String nextLon = kDefaultLongitude.toString();
 
     try {
       // Intentamos obtener la ubicación inicial para rellenar los campos
@@ -128,14 +151,20 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
         }
         if (permission == LocationPermission.whileInUse ||
             permission == LocationPermission.always) {
-          // SOLO UNA PETICION de locación, evitamos llamadas duplicadas y crash de LocationManager
-          final pos = await Geolocator.getCurrentPosition();
+          // SOLO UNA PETICION de locación, evitamos llamadas duplicadas y crash
+          // de LocationManager. Con timeLimit para que un GPS frío no cuelgue
+          // toda la carga inicial.
+          final pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              timeLimit: kLocationTimeout,
+            ),
+          );
           nextLat = pos.latitude.toString();
           nextLon = pos.longitude.toString();
         }
       }
     } catch (e) {
-      print("Error obteniendo ubicación inicial UI: $e");
+      debugPrint("Error obteniendo ubicación inicial UI: $e");
     }
 
     if (mounted) {
@@ -145,58 +174,14 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       });
     }
 
-    if (mounted) {
-      // Una vez la ubicación fue resuelta (o falló), hacemos una única llamada a las API
-      await _updateSkyData(initial: true);
-    }
+    if (!mounted) return;
 
-    // Al abrir la app: si fue reiniciada por MIUI al cambiar el wallpaper solo mostramos
-    // el aviso de éxito. Si es una apertura normal y hay config guardada, actualizamos.
-    if (mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      final justApplied = prefs.getBool(kWallpaperJustAppliedKey) ?? false;
-      if (justApplied) {
-        _checkAndShowWallpaperAppliedNotice();
-      } else {
-        _updateWallpaperOnStartup();
-      }
-    }
-  }
+    // Una vez la ubicación fue resuelta (o falló), hacemos una única llamada a las API
+    await _updateSkyData(initial: true);
 
-  /// Actualiza el wallpaper automáticamente al abrir la app (solo si hay config guardada).
-  Future<void> _updateWallpaperOnStartup() async {
-    if (_isApplyingWallpaper) return;
-    if (!Platform.isAndroid) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasConfig = prefs.containsKey(kWallpaperLatKey) &&
-          prefs.containsKey(kWallpaperTargetKey);
-      if (!hasConfig) return;
-      if (kDebugMode) debugPrint('Auto-actualizando wallpaper al abrir la app...');
-      await refreshWallpaperFromServer(date: DateTime.now());
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error auto-actualizando wallpaper: $e');
-    }
-  }
-
-  Future<void> _checkAndShowWallpaperAppliedNotice() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final justApplied = prefs.getBool(kWallpaperJustAppliedKey) ?? false;
-      if (!justApplied) return;
-      await prefs.remove(kWallpaperJustAppliedKey);
-      if (!mounted) return;
-      // Pequeño delay para que la UI esté completamente visible
-      await Future.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Fondo celestial aplicado! ✨'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 4),
-        ),
-      );
-    } catch (_) {}
+    // El fondo se refresca después del mapa, ya con las coordenadas nuevas
+    // guardadas en preferencias.
+    if (mounted) await _updateWallpaperIfNeeded(force: manual);
   }
 
   @override
@@ -213,17 +198,78 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     // Solo actualizamos si la app vuelve al primer plano y NO está el diálogo de fecha/hora abierto
     if (state == AppLifecycleState.resumed) {
       // Pequeño delay para asegurar que el sistema está listo
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-           _updateSkyData();
-        }
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        if (!mounted) return;
+        await _updateSkyData();
+        // Volver de background no es una acción explícita del usuario, así que
+        // acá sí respetamos el intervalo mínimo entre refrescos del fondo.
+        if (mounted) await _updateWallpaperIfNeeded();
       });
     }
   }
 
-  // Variables para evitar peticiones redundantes
+  /// Refresca el fondo del sistema si el usuario lo habilitó.
+  ///
+  /// Con [force] en `false` (retorno desde background) se respeta
+  /// [kWallpaperRefreshInterval] para no regenerar el PNG en cada cambio de
+  /// app. Con `true` (abrir la app, pull-to-refresh) se actualiza siempre.
+  ///
+  /// Nunca lanza: es un refresco de fondo y no debe interrumpir la pantalla.
+  /// Los errores quedan en el log del canal `wallpaper`.
+  Future<void> _updateWallpaperIfNeeded({bool force = false}) async {
+    if (!Platform.isAndroid) return;
+
+    try {
+      // Respetar la preferencia del usuario: si no activó el auto-refresh, no
+      // tocamos su fondo de pantalla.
+      if (!await isWallpaperAutoRefreshEnabled()) {
+        if (kDebugMode) {
+          debugPrint('Wallpaper auto-refresh desactivado por el usuario');
+        }
+        return;
+      }
+
+      // Sin configuración guardada el usuario nunca aplicó un fondo.
+      if (!await hasWallpaperConfig()) {
+        if (kDebugMode) debugPrint('No hay configuración de wallpaper guardada');
+        return;
+      }
+
+      if (!force) {
+        final lastRefresh = await lastWallpaperRefresh();
+        if (lastRefresh != null) {
+          final elapsed = DateTime.now().difference(lastRefresh);
+          if (elapsed < kWallpaperRefreshInterval) {
+            if (kDebugMode) {
+              debugPrint(
+                'Wallpaper actualizado hace ${elapsed.inMinutes} min, esperando...',
+              );
+            }
+            return;
+          }
+        }
+      }
+
+      if (!mounted) return;
+      await refreshWallpaperFromServer(
+        date: DateTime.now(),
+        screenSize: _physicalScreenSize(),
+      );
+      if (kDebugMode) debugPrint('Wallpaper del sistema actualizado ✓');
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error actualizando wallpaper: $e');
+    }
+  }
+
+  /// Tamaño en píxeles físicos de la pantalla, para rasterizar el fondo a
+  /// resolución nativa.
+  ui.Size? _physicalScreenSize() {
+    if (!mounted) return null;
+    return View.maybeOf(context)?.physicalSize;
+  }
+
+  // Variable para evitar peticiones redundantes
   bool _isUpdating = false;
-  bool _isApplyingWallpaper = false;
 
   Future<bool> _updateSkyData({bool initial = false, VoidCallback? onRefreshed}) async {
     if (_isUpdating) return false;
@@ -242,9 +288,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
 
       // Guardar las últimas coordenadas para usar al actualizar wallpaper
       try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setDouble('wallpaper_lat', lat);
-        await prefs.setDouble('wallpaper_lon', lng);
+        await persistWallpaperCoordinates(lat: lat, lon: lng);
       } catch (_) {}
 
       // El widget puede haberse desmontado durante el await anterior
@@ -275,13 +319,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('last_sky_data', jsonEncode(data));
 
-                // Sincronizar con el Live Wallpaper si está activo
-                try {
-                  const platform = MethodChannel('windowsdemeter.com/wallpaper');
-                  await platform.invokeMethod('updateData', data);
-                } catch (_) {
-                  // Ignorar si el fondo de pantalla no está escuchando
-                }
+                // Sincronizar con el Live Wallpaper si está activo. MainActivity
+                // reenvía este mensaje al engine del fondo animado.
+                await LiveWallpaperService.syncSkyData(data);
               } catch (e) {
                 debugPrint("Error persistiendo o sincronizando sky data: $e");
               }
@@ -1304,97 +1344,149 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
     return s[0].toUpperCase() + s.substring(1);
   }
 
-  void _showWallpaperOptions(BuildContext ctx) {
+  Future<void> _showWallpaperOptions(BuildContext ctx) async {
     final lat = double.tryParse(_latController.text);
     final lon = double.tryParse(_lonController.text);
-    showModalBottomSheet(
+
+    // Estado actual de la preferencia, para que el switch abra en su valor real.
+    var autoRefresh = await isWallpaperAutoRefreshEnabled();
+    final configured = await hasWallpaperConfig();
+    if (!ctx.mounted) return;
+
+    await showModalBottomSheet<void>(
       context: ctx,
       backgroundColor: cardBackground,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetCtx) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) => SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Fondo de Pantalla Celestial",
+                    style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "El cielo se obtiene en tiempo real desde el servidor.",
+                    style: TextStyle(color: secondaryTextColor, fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: const Icon(Icons.preview_rounded, color: accentCyan),
+                    title: const Text("Previsualizar Cielo", style: TextStyle(color: textColor)),
+                    subtitle: const Text("Ver el mapa celeste a pantalla completa",
+                        style: TextStyle(color: secondaryTextColor, fontSize: 11)),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      Navigator.push(ctx, MaterialPageRoute(
+                        builder: (_) => CelestialScreenSaver(lat: lat, lon: lon),
+                      ));
+                    },
+                  ),
+                  const Divider(color: Colors.white12),
+                  ListTile(
+                    leading: const Icon(Icons.home_outlined, color: accentCyan),
+                    title: const Text("Pantalla Principal", style: TextStyle(color: textColor)),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _applyWallpaper(ctx, WallpaperTarget.home);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline, color: accentCyan),
+                    title: const Text("Pantalla de Bloqueo", style: TextStyle(color: textColor)),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _applyWallpaper(ctx, WallpaperTarget.lock);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.wallpaper_rounded, color: accentPurple),
+                    title: const Text("Ambas Pantallas",
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _applyWallpaper(ctx, WallpaperTarget.both);
+                    },
+                  ),
+                  const Divider(color: Colors.white12),
+                  ListTile(
+                    leading: const Icon(Icons.animation_rounded, color: accentPurple),
+                    title: const Text("Fondo Animado", style: TextStyle(color: textColor)),
+                    subtitle: const Text(
+                      "Activa el cielo en vivo desde los ajustes de Android",
+                      style: TextStyle(color: secondaryTextColor, fontSize: 11),
+                    ),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _openLiveWallpaperPicker(ctx);
+                    },
+                  ),
+                  const Divider(color: Colors.white12),
+                  // Opt-in explícito: sin esto la app nunca cambia el fondo por
+                  // su cuenta, solo cuando el usuario lo pide desde acá.
+                  SwitchListTile(
+                    value: autoRefresh,
+                    activeThumbColor: accentCyan,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      "Actualizar automáticamente",
+                      style: TextStyle(color: textColor, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      configured
+                          ? "Al abrir la app y al recargar el mapa deslizando hacia abajo."
+                          : "Aplica primero un fondo para poder activarlo.",
+                      style: const TextStyle(color: secondaryTextColor, fontSize: 11),
+                    ),
+                    onChanged: configured
+                        ? (value) async {
+                            await setWallpaperAutoRefreshEnabled(value);
+                            autoRefresh = value;
+                            setSheetState(() {});
+                          }
+                        : null,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 14),
-            const Text(
-              "Fondo de Pantalla Celestial",
-              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              "El cielo se obtiene en tiempo real desde el servidor.",
-              style: TextStyle(color: secondaryTextColor, fontSize: 11),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.preview_rounded, color: accentCyan),
-              title: const Text("Previsualizar Cielo", style: TextStyle(color: textColor)),
-              subtitle: const Text("Ver el mapa celeste a pantalla completa",
-                  style: TextStyle(color: secondaryTextColor, fontSize: 11)),
-              onTap: () {
-                Navigator.pop(sheetCtx);
-                Navigator.push(ctx, MaterialPageRoute(
-                  builder: (_) => CelestialScreenSaver(lat: lat, lon: lon),
-                ));
-              },
-            ),
-            const Divider(color: Colors.white12),
-            ListTile(
-              leading: const Icon(Icons.home_outlined, color: accentCyan),
-              title: const Text("Pantalla Principal", style: TextStyle(color: textColor)),
-              onTap: () {
-                Navigator.pop(sheetCtx);
-                _applyWallpaper(ctx, WallpaperTarget.home);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.lock_outline, color: accentCyan),
-              title: const Text("Pantalla de Bloqueo", style: TextStyle(color: textColor)),
-              onTap: () {
-                Navigator.pop(sheetCtx);
-                _applyWallpaper(ctx, WallpaperTarget.lock);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.wallpaper_rounded, color: accentPurple),
-              title: const Text("Ambas Pantallas",
-                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-              onTap: () {
-                Navigator.pop(sheetCtx);
-                _applyWallpaper(ctx, WallpaperTarget.both);
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _applyWallpaper(BuildContext ctx, WallpaperTarget target) async {
-    // Evitar ejecución concurrente
-    if (_isApplyingWallpaper) return;
-    _isApplyingWallpaper = true;
-
-    final lat = double.tryParse(_latController.text) ?? -33.5227;
-    final lon = double.tryParse(_lonController.text) ?? -70.5983;
-    final dt = DateTime(
-      _selectedDate.year, _selectedDate.month, _selectedDate.day,
-      _selectedTime.hour, _selectedTime.minute,
+  Future<void> _openLiveWallpaperPicker(BuildContext ctx) async {
+    final opened = await LiveWallpaperService.openPicker();
+    if (!ctx.mounted || opened) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Tu dispositivo no permite abrir el selector de fondos animados.",
+        ),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 4),
+      ),
     );
+  }
 
-    await persistWallpaperSettings(lat: lat, lon: lon, target: target);
-
+  Future<void> _applyWallpaper(BuildContext ctx, WallpaperTarget target) async {
     if (!Platform.isAndroid) {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
@@ -1408,8 +1500,19 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       return;
     }
 
+    final lat = double.tryParse(_latController.text) ?? kDefaultLatitude;
+    final lon = double.tryParse(_lonController.text) ?? kDefaultLongitude;
+    final dt = DateTime(
+      _selectedDate.year, _selectedDate.month, _selectedDate.day,
+      _selectedTime.hour, _selectedTime.minute,
+    );
+    final screenSize = _physicalScreenSize();
+
+    await persistWallpaperSettings(lat: lat, lon: lon, target: target);
+
     if (!ctx.mounted) return;
-    ScaffoldMessenger.of(ctx).showSnackBar(
+    final messenger = ScaffoldMessenger.of(ctx);
+    messenger.showSnackBar(
       const SnackBar(
         content: Row(children: [
           SizedBox(
@@ -1423,33 +1526,52 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
         backgroundColor: accentPurple,
       ),
     );
+
     try {
-      await refreshWallpaperFromServer(date: dt);
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(
-            content: Text("¡Fondo celestial aplicado! ✨"),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
+      // El destino va explícito: antes se forzaba 'both' y se ignoraba lo que
+      // el usuario había elegido en la hoja de opciones.
+      await refreshWallpaperFromServer(
+        date: dt,
+        target: target,
+        screenSize: screenSize,
+      );
+      if (!ctx.mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text("¡Fondo celestial aplicado en ${_targetLabel(target)}! ✨"),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } on WallpaperRefreshException catch (e) {
+      if (!ctx.mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } catch (e) {
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text("Error: $e"),
-            backgroundColor: Colors.redAccent,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } finally {
-      _isApplyingWallpaper = false;
+      if (!ctx.mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text("No se pudo aplicar el fondo: $e"),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
   }
+
+  String _targetLabel(WallpaperTarget target) => switch (target) {
+        WallpaperTarget.home => "la pantalla principal",
+        WallpaperTarget.lock => "la pantalla de bloqueo",
+        WallpaperTarget.both => "ambas pantallas",
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -1607,7 +1729,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                             );
                           }
                           return RefreshIndicator(
-                            onRefresh: () async => _initLocationAndData(),
+                            // Gesto explícito del usuario: recarga el cielo y,
+                            // si lo tiene activado, el fondo del sistema.
+                            onRefresh: () => _initLocationAndData(manual: true),
                             color: accentCyan,
                             backgroundColor: cardBackground,
                             displacement: 60,
@@ -1660,7 +1784,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                           }
                           final apiData = snapshot.data!;
                           return RefreshIndicator(
-                            onRefresh: () async => _initLocationAndData(),
+                            // Gesto explícito del usuario: recarga el cielo y,
+                            // si lo tiene activado, el fondo del sistema.
+                            onRefresh: () => _initLocationAndData(manual: true),
                             color: accentCyan,
                             backgroundColor: cardBackground,
                             displacement: 60,

@@ -2,17 +2,14 @@
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> -->
-    <!-- Requerido para que Workmanager reprograme la tarea de fondo tras reiniciar el dispositivo -->
-    <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> -->
-    <!-- Requerido para que Workmanager funcione en segundo plano en Android 12+ -->
-    <!-- <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" /> -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:label="WindowsDemeter"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- TODO(admob): este es el App ID de PRUEBA de Google. Reemplazar por
+             el App ID real antes de publicar. Los Ad Unit ID viven en
+             lib/config/ads_config.dart. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>

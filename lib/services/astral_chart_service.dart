@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'api_config.dart';
 import 'auth_service.dart';
 
 class AstralChartService {
-  final String _baseUrl = "https://windowsdemeter.com/api";
+  final String _baseUrl = ApiConfig.baseUrl;
   final AuthService _authService = AuthService();
 
   // Helper method for headers matching auth_service.dart structure
@@ -30,7 +32,7 @@ class AstralChartService {
       }
       return [];
     } catch (e) {
-      print("Error fetching user charts: $e");
+      debugPrint("Error fetching user charts: $e");
       return [];
     }
   }
@@ -70,7 +72,7 @@ class AstralChartService {
         };
       }
     } catch (e) {
-      print("Error creating astral chart: $e");
+      debugPrint("Error creating astral chart: $e");
       return {'success': false, 'message': 'Excepción: $e'};
     }
   }
@@ -97,7 +99,7 @@ class AstralChartService {
         };
       }
     } catch (e) {
-      print("Error deleting astral chart: $e");
+      debugPrint("Error deleting astral chart: $e");
       return {'success': false, 'message': 'Excepción: $e'};
     }
   }

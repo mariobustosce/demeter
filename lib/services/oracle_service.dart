@@ -155,11 +155,11 @@ class OracleService {
         }
         return [];
       } else {
-        print("Error obteniendo historial: ${response.statusCode} - ${response.body}");
+        debugPrint("Error obteniendo historial: ${response.statusCode} - ${response.body}");
         throw Exception("Error ${response.statusCode}: ${response.body}");
       }
     } catch (e) {
-      print("Excepción al obtener historial del oráculo: $e");
+      debugPrint("Excepción al obtener historial del oráculo: $e");
       rethrow;
     }
   }
@@ -193,7 +193,7 @@ class OracleService {
         };
       }
     } catch (e) {
-      print("Error deleting consultation: $e");
+      debugPrint("Error deleting consultation: $e");
       return {'success': false, 'message': 'Excepción: $e'};
     }
   }
