@@ -43,3 +43,24 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Logs y salidas sueltas (pueden traer trazas del backend o rutas locales)
+*_log.txt
+*_logs*.txt
+analysis_out.txt
+/.analysis/
+
+# Capturas de `flutter run`
+flutter_*.png
+
+# Variables de entorno
+.env
+.env.*
+
+# Basura generada dentro de packages/
+packages/**/.gradle/
+packages/**/build/
+packages/**/local.properties
+packages/**/pubspec.lock
+packages/**/GeneratedPluginRegistrant.java
+packages/**/example/ios/
