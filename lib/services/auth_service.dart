@@ -1,88 +1,42 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fba;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../config/app_config.dart';
 import '../models/auth_response.dart';
 import '../models/user.dart';
-import 'api_config.dart';
+import 'api_client.dart';
+import 'token_store.dart';
 
 class AuthService {
-  final String _baseUrl = ApiConfig.baseUrl;
+  ApiClient get _api => ApiClient.instance;
+  final TokenStore _tokens = TokenStore();
 
-  // Guardar el Token de manera persistente
-  Future<void> _saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('sanctum_token', token);
-  }
+  // Igual para todas las instalaciones hasta el paso 3 de la fase 1.
+  static const String _deviceName = 'flutter_demeter_app';
 
   // Recuperar el Token almacenado
-  Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('sanctum_token');
-  }
+  Future<String?> getToken() => _tokens.read();
 
-  // MÉTODO CENTRALIZADO DE HEADERS
-  Future<Map<String, String>> _getHeaders() async {
-    String? token = await getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
-
-  String _readErrorMessage(
-    dynamic body, [
-    String fallback = 'Ocurrió un error de autenticación',
-  ]) {
-    if (body is Map<String, dynamic>) {
-      if (body['message'] != null) {
-        return body['message'].toString();
-      }
-
-      final errors = body['errors'];
-      if (errors is Map && errors.isNotEmpty) {
-        final first = errors.values.first;
-        if (first is List && first.isNotEmpty) {
-          return first.first.toString();
-        }
-      }
-    }
-
-    return fallback;
-  }
-
-  AuthResponse _parseAuthResponse(Map<String, dynamic> body) {
-    final response = AuthResponse.fromJson(body);
+  Future<AuthResponse> _saveSession(dynamic body) async {
+    final response = AuthResponse.fromJson(jsonMap(body));
     if (response.accessToken.isEmpty) {
       throw Exception('La API no devolvió access_token.');
     }
+    await _tokens.write(response.accessToken);
     return response;
   }
 
   Future<AuthResponse> login(String email, String password) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/login'),
-      headers: await _getHeaders(),
-      body: jsonEncode({
+    final body = await _api.post(
+      '/login',
+      auth: false,
+      body: {
         'email': email,
         'password': password,
-        'device_name': ApiConfig.deviceName,
-      }),
+        'device_name': _deviceName,
+      },
     );
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (response.statusCode == 200) {
-      final authResponse = _parseAuthResponse(body);
-      await _saveToken(authResponse.accessToken);
-      return authResponse;
-    }
-
-    throw Exception(_readErrorMessage(body, 'No se pudo iniciar sesión.'));
+    return _saveSession(body);
   }
 
   Future<AuthResponse> register({
@@ -97,26 +51,13 @@ class AuthService {
       'email': email,
       'password': password,
       'password_confirmation': passwordConfirmation,
-      'device_name': ApiConfig.deviceName,
+      'device_name': _deviceName,
       if (referralCode != null && referralCode.trim().isNotEmpty)
         'referral_code': referralCode.trim(),
     };
 
-    final response = await http.post(
-      Uri.parse('$_baseUrl/register'),
-      headers: await _getHeaders(),
-      body: jsonEncode(payload),
-    );
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final authResponse = _parseAuthResponse(body);
-      await _saveToken(authResponse.accessToken);
-      return authResponse;
-    }
-
-    throw Exception(_readErrorMessage(body, 'No se pudo crear la cuenta.'));
+    final body = await _api.post('/register', auth: false, body: payload);
+    return _saveSession(body);
   }
 
   Future<AuthResponse> loginWithGoogle() async {
@@ -169,29 +110,15 @@ class AuthService {
       final tokenToSend = googleAuth.accessToken;
       debugPrint('[Google Login] Token enviado al backend: ${tokenToSend != null ? "OK" : "NULL"}');
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/login/google'),
-        headers: await _getHeaders(),
-        body: jsonEncode({
+      final body = await _api.post(
+        '/login/google',
+        auth: false,
+        body: {
           'token': tokenToSend,
-          'device_name': ApiConfig.deviceName,
-        }),
+          'device_name': _deviceName,
+        },
       );
-
-      // El body trae el token Sanctum: no se registra.
-      debugPrint('[Google Login] HTTP status: ${response.statusCode}');
-
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-      if (response.statusCode == 200) {
-        final authResponse = _parseAuthResponse(body);
-        await _saveToken(authResponse.accessToken);
-        return authResponse;
-      }
-
-      throw Exception(
-        _readErrorMessage(body, 'No se pudo iniciar sesión con Google.'),
-      );
+      return _saveSession(body);
     } catch (e) {
       if (e is Exception) {
         rethrow;
@@ -202,14 +129,9 @@ class AuthService {
 
   Future<User?> getMe() async {
     try {
-      // Con timeout: esta llamada bloquea el splash, y sin límite una red que
-      // no responde deja la app colgada en el logo indefinidamente.
-      final response = await http
-          .get(Uri.parse('$_baseUrl/me'), headers: await _getHeaders())
-          .timeout(kAuthTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+      // Timeout corto: esta llamada bloquea el splash.
+      final data = await _api.get('/me', timeout: kAuthTimeout);
+      if (data is Map<String, dynamic>) {
         final userData = data['data'] ?? data['user'] ?? data;
         return User.fromJson(userData);
       }
@@ -222,13 +144,9 @@ class AuthService {
   // Cerrar sesión
   Future<void> logout() async {
     try {
-      await http.post(
-        Uri.parse('$_baseUrl/logout'),
-        headers: await _getHeaders(),
-      );
+      await _api.post('/logout');
     } catch (_) {}
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('sanctum_token');
+    await _tokens.clear();
   }
 }

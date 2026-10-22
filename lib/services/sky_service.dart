@@ -4,12 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../config/app_config.dart';
-import 'api_config.dart';
-import 'auth_service.dart';
+import 'api_client.dart';
 
 class SkyService {
-  final String _baseUrl = ApiConfig.baseUrl;
-  final AuthService _authService = AuthService();
+  ApiClient get _api => ApiClient.instance;
 
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;
@@ -43,49 +41,49 @@ class SkyService {
     DateTime? date,
   }) async {
     try {
-      final token = await _authService.getToken();
-
-      double latitude = lat ?? kDefaultLatitude;
-      double longitude = lng ?? kDefaultLongitude;
-
-      if (lat == null || lng == null) {
-        Position? position = await _determinePosition();
-        if (position != null) {
-          latitude = position.latitude;
-          longitude = position.longitude;
-        }
-      }
-
-      final now = date ?? DateTime.now();
-      final dateStr =
-          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-      final timeStr =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-          
-      // Construcción manual de la URL
-      final manualUrlString = '$_baseUrl/astronomy/map-api-mobile?lat=${latitude}&lon=${longitude}&date=$dateStr&time=$timeStr&_t=${DateTime.now().millisecondsSinceEpoch}';
-      final uri = Uri.parse(manualUrlString);
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              if (token != null) 'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(kApiTimeout);
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        debugPrint("Error obteniendo datos API (Status ${response.statusCode})");
-        return null;
-      }
+      final data = await _api.get(
+        '/astronomy/map-api-mobile',
+        query: await _mapQuery(lat, lng, date),
+        timeout: kApiTimeout,
+      );
+      return data is Map<String, dynamic> ? data : null;
     } catch (e) {
       debugPrint("Error cargando los datos API: $e");
       return null;
     }
+  }
+
+  /// Query común de los endpoints del mapa. Sin coordenadas, usa el GPS o las
+  /// coordenadas por defecto.
+  Future<Map<String, String>> _mapQuery(
+    double? lat,
+    double? lng,
+    DateTime? date,
+  ) async {
+    double latitude = lat ?? kDefaultLatitude;
+    double longitude = lng ?? kDefaultLongitude;
+
+    if (lat == null || lng == null) {
+      Position? position = await _determinePosition();
+      if (position != null) {
+        latitude = position.latitude;
+        longitude = position.longitude;
+      }
+    }
+
+    final now = date ?? DateTime.now();
+    final dateStr =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final timeStr =
+        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    return {
+      'lat': '$latitude',
+      'lon': '$longitude',
+      'date': dateStr,
+      'time': timeStr,
+      '_t': '${DateTime.now().millisecondsSinceEpoch}',
+    };
   }
 
   // --- MÉTODOS DE COMPATIBILIDAD (No borrar, se usan en Background y Consultas) ---
@@ -96,52 +94,14 @@ class SkyService {
     DateTime? date,
   }) async {
     try {
-      final token = await _authService.getToken();
-
-      double latitude = lat ?? kDefaultLatitude;
-      double longitude = lng ?? kDefaultLongitude;
-
-      if (lat == null || lng == null) {
-        Position? position = await _determinePosition();
-        if (position != null) {
-          latitude = position.latitude;
-          longitude = position.longitude;
-        }
-      }
-
-      final now = date ?? DateTime.now();
-      final dateStr =
-          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-      final timeStr =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-
-      // Construcción manual por GET como en el navegador web
-      final manualUrlString = '$_baseUrl/astronomy/map-svg-mobile?lat=${latitude}&lon=${longitude}&date=$dateStr&time=$timeStr&_t=${DateTime.now().millisecondsSinceEpoch}';
-      final uri = Uri.parse(manualUrlString);
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              if (token != null) 'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(kApiTimeout);
-
-      if (response.statusCode == 200) {
-        try {
-          final decoded = json.decode(response.body);
-          if (decoded is Map<String, dynamic> && decoded.containsKey('svg')) {
-            return decoded['svg'];
-          }
-        } catch (_) {
-          return response.body;
-        }
-        return response.body;
-      }
-      debugPrint("Error obteniendo el SVG (Status ${response.statusCode})");
-      return null;
+      final data = await _api.get(
+        '/astronomy/map-svg-mobile',
+        query: await _mapQuery(lat, lng, date),
+        timeout: kApiTimeout,
+      );
+      // Viene como {"svg": "..."} o como el SVG en texto plano.
+      if (data is Map<String, dynamic>) return data['svg'] as String?;
+      return data is String ? data : null;
     } catch (e) {
       debugPrint("Error cargando el SVG del cielo: $e");
       return null;
@@ -180,7 +140,7 @@ class SkyService {
         headers: {
           'User-Agent': 'DemeterApp/1.0', // Nominatim requiere User-Agent
         },
-      );
+      ).timeout(kRequestTimeout);
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
@@ -191,9 +151,7 @@ class SkyService {
           };
         }
       } else {
-        debugPrint(
-          "Error buscando ubicación (Status ${response.statusCode}): ${response.body}",
-        );
+        debugPrint("Error buscando ubicación (Status ${response.statusCode})");
       }
     } catch (e) {
       debugPrint("Error buscando ubicación: $e");

@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
     final hasSession = results[1] == true;
-    Navigator.pushReplacementNamed(context, hasSession ? '/home' : '/login');
+    Navigator.pushReplacementNamed(context, hasSession ? '/home' : kGuestRoute);
   }
 
   /// `true` si hay un token válido. Cualquier falla (red, token expirado)

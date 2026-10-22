@@ -177,21 +177,11 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
         _isConsulting = false;
       });
 
-      final isInsufficientBalance =
-          result['error'] == 'Polvo estelar insuficiente';
+      // Si falta polvo estelar, el ApiClient ya abrió la tienda.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['error'] ?? 'Error desconocido'),
           backgroundColor: Colors.red,
-          action: isInsufficientBalance
-              ? SnackBarAction(
-                  label: 'Comprar',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/store');
-                  },
-                )
-              : null,
         ),
       );
     }

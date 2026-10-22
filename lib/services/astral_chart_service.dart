@@ -1,35 +1,15 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'api_config.dart';
-import 'auth_service.dart';
+import 'api_client.dart';
 
 class AstralChartService {
-  final String _baseUrl = ApiConfig.baseUrl;
-  final AuthService _authService = AuthService();
-
-  // Helper method for headers matching auth_service.dart structure
-  Future<Map<String, String>> _getHeaders() async {
-    String? token = await _authService.getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
+  ApiClient get _api => ApiClient.instance;
 
   // GET /api/user/charts
   Future<List<dynamic>> getUserCharts() async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/user/charts'),
-        headers: await _getHeaders(),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['data'] ?? data; // Adjust based on your API response wrapper
-      }
+      final data = await _api.get('/user/charts');
+      if (data is List) return data;
+      if (data is Map && data['data'] is List) return data['data'] as List;
       return [];
     } catch (e) {
       debugPrint("Error fetching user charts: $e");
@@ -47,60 +27,43 @@ class AstralChartService {
     required String timezone,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/user/charts'),
-        headers: await _getHeaders(),
-        body: jsonEncode({
+      final data = await _api.post(
+        '/user/charts',
+        body: {
           'titulo': title,
           'birth_date': birthDate,
           'birth_time': birthTime,
           'birth_lat': birthLat,
           'birth_lon': birthLon,
           'timezone': timezone,
-        }),
+        },
       );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {'success': true, 'data': data};
-      } else {
-        return {
-          'success': false,
-          'message': data['message'] ?? 'Error al crear la carta astral',
-          'errors': data['errors']
-        };
-      }
+      return {'success': true, 'data': data};
+    } on ValidationException catch (e) {
+      return {'success': false, 'message': e.message, 'errors': e.fieldErrors};
     } catch (e) {
       debugPrint("Error creating astral chart: $e");
-      return {'success': false, 'message': 'Excepción: $e'};
+      return {
+        'success': false,
+        'message': e is ApiException ? e.message : 'Error al crear la carta astral',
+      };
     }
   }
 
   // DELETE /api/user/charts/{id}
   Future<Map<String, dynamic>> deleteChart(int chartId) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/user/charts/$chartId'),
-        headers: await _getHeaders(),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Carta astral eliminada exitosamente',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': data['message'] ?? 'Error al eliminar la carta astral',
-        };
-      }
+      final data = await _api.delete('/user/charts/$chartId');
+      return {
+        'success': true,
+        'message': apiMessage(data) ?? 'Carta astral eliminada exitosamente',
+      };
     } catch (e) {
       debugPrint("Error deleting astral chart: $e");
-      return {'success': false, 'message': 'Excepción: $e'};
+      return {
+        'success': false,
+        'message': e is ApiException ? e.message : 'Error al eliminar la carta astral',
+      };
     }
   }
 }

@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import '../config/app_config.dart';
+import 'api_client.dart';
 
 class OracleService {
-  final String _baseUrl = "https://windowsdemeter.com/api"; 
-  final AuthService _authService = AuthService();
+  ApiClient get _api => ApiClient.instance;
 
   Future<Map<String, dynamic>> consultarAlOraculo({
     required String pregunta,
@@ -14,9 +12,6 @@ class OracleService {
     String? cartaAstralId,
     Map<String, dynamic>? contextoCompleto,
   }) async {
-    final token = await _authService.getToken();
-    final url = Uri.parse('$_baseUrl/oraculo/consultar');
-
     final payload = {
       "pregunta": pregunta,
       "nivel_contexto": nivelContexto, // 'basico', 'intermedio', 'premium'
@@ -26,48 +21,27 @@ class OracleService {
     };
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(payload),
-      );
+      final responseData = jsonMap(await _api.post(
+        '/oraculo/consultar',
+        body: payload,
+        timeout: kOracleTimeout,
+      ));
 
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && responseData['success'] == true) {
+      if (responseData['success'] == true) {
         return {
           'success': true,
           'response': responseData['response'],
           'nuevoBalance': responseData['nuevo_balance'],
         };
-      } else if (response.statusCode == 403 && responseData['insufficient_coins'] == true) {
-        return {
-          'success': false,
-          'error': 'Polvo estelar insuficiente',
-          'details': 'Necesitas ${responseData['required_coins']} y tienes ${responseData['current_balance']}.'
-        };
-      } else if (response.statusCode == 422) {
-        return {
-          'success': false,
-          'error': 'Error de validación',
-          'details': responseData['errors'].toString(),
-        };
-      } else {
-        return {
-          'success': false,
-          'error': responseData['error'] ?? 'Error desconocido',
-        };
       }
-    } catch (e) {
       return {
         'success': false,
-        'error': 'Error de conexión',
-        'details': e.toString(),
+        'error': responseData['error'] ?? 'Error desconocido',
       };
+    } on InsufficientCoinsException catch (e) {
+      return _insufficientCoins(e);
+    } catch (e) {
+      return {'success': false, 'error': _errorMessage(e)};
     }
   }
 
@@ -76,9 +50,6 @@ class OracleService {
     required String cartaBId,
     String nivelContexto = 'intermedio',
   }) async {
-    final token = await _authService.getToken();
-    final url = Uri.parse('$_baseUrl/oraculo/compatibilidad');
-
     final payload = {
       "carta_a_id": cartaAId,
       "carta_b_id": cartaBId,
@@ -86,78 +57,43 @@ class OracleService {
     };
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(payload),
-      );
+      final responseData = jsonMap(await _api.post(
+        '/oraculo/compatibilidad',
+        body: payload,
+        timeout: kOracleTimeout,
+      ));
 
-      debugPrint("Compatibilidad: status ${response.statusCode}");
-
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && responseData['success'] == true) {
+      if (responseData['success'] == true) {
         return {
           'success': true,
           'texto': responseData['texto'] ?? responseData['response'],
           'nuevoBalance': responseData['nuevo_balance'],
         };
-      } else if (response.statusCode == 403 && responseData['insufficient_coins'] == true) {
-        return {
-          'success': false,
-          'error': 'Polvo estelar insuficiente',
-          'details': 'Necesitas ${responseData['required_coins']} y tienes ${responseData['current_balance']}.'
-        };
-      } else {
-        return {
-          'success': false,
-          'error': responseData['error'] ?? 'Error desconocido',
-        };
       }
-    } catch (e) {
       return {
         'success': false,
-        'error': 'Error de conexión',
-        'details': e.toString(),
+        'error': responseData['error'] ?? 'Error desconocido',
       };
+    } on InsufficientCoinsException catch (e) {
+      return _insufficientCoins(e);
+    } catch (e) {
+      return {'success': false, 'error': _errorMessage(e)};
     }
   }
 
   Future<List<dynamic>> getHistorialConsultas() async {
-    final token = await _authService.getToken();
-    final url = Uri.parse('$_baseUrl/user/history');
-
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        if (decoded is List) {
-          return decoded;
-        } else if (decoded is Map<String, dynamic>) {
-          if (decoded.containsKey('data') && decoded['data'] is List) {
-            return decoded['data'] as List<dynamic>;
-          } else if (decoded.containsKey('data') && decoded['data'] is Map && decoded['data'].containsKey('data') && decoded['data']['data'] is List) {
-           return decoded['data']['data'] as List<dynamic>;
-          }
+      final decoded = await _api.get('/user/history');
+      if (decoded is List) {
+        return decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        if (decoded.containsKey('data') && decoded['data'] is List) {
+          return decoded['data'] as List<dynamic>;
+        } else if (decoded.containsKey('data') && decoded['data'] is Map && decoded['data'].containsKey('data') && decoded['data']['data'] is List) {
+         return decoded['data']['data'] as List<dynamic>;
         }
-        return [];
-      } else {
-        // Sin el body: trae consultas del usuario y se propagaría al log del catch.
-        debugPrint("Error obteniendo historial: ${response.statusCode}");
-        throw Exception("Error ${response.statusCode}");
       }
+      return [];
     } catch (e) {
       debugPrint("Excepción al obtener historial del oráculo: $e");
       rethrow;
@@ -166,35 +102,28 @@ class OracleService {
 
   // DELETE /api/user/history/{id}
   Future<Map<String, dynamic>> deleteConsultation(int consultationId) async {
-    final token = await _authService.getToken();
-    final url = Uri.parse('$_baseUrl/user/history/$consultationId');
-
     try {
-      final response = await http.delete(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return {
-          'success': true,
-          'message': responseData['message'] ?? 'Consulta eliminada exitosamente',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': responseData['message'] ?? 'Error al eliminar la consulta',
-        };
-      }
+      final responseData = await _api.delete('/user/history/$consultationId');
+      return {
+        'success': true,
+        'message': apiMessage(responseData) ?? 'Consulta eliminada exitosamente',
+      };
     } catch (e) {
       debugPrint("Error deleting consultation: $e");
-      return {'success': false, 'message': 'Excepción: $e'};
+      return {
+        'success': false,
+        'message': e is ApiException ? e.message : 'Error al eliminar la consulta',
+      };
     }
   }
+
+  // El ApiClient ya abrió la tienda; esto es el mensaje para la pantalla.
+  Map<String, dynamic> _insufficientCoins(InsufficientCoinsException e) => {
+        'success': false,
+        'error': 'Polvo estelar insuficiente',
+        'details': 'Necesitas ${e.required} y tienes ${e.balance}.',
+      };
+
+  String _errorMessage(Object e) =>
+      e is ApiException ? e.message : 'Error desconocido';
 }

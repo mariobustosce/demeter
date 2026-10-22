@@ -12,6 +12,20 @@ library;
 const double kDefaultLatitude = -33.5227;
 const double kDefaultLongitude = -70.5983;
 
+/// Base del API. Se cambia al compilar, sin tocar código:
+/// `flutter run --dart-define=API_BASE=http://demeter.test/api`.
+const String kApiBase = String.fromEnvironment(
+  'API_BASE',
+  defaultValue: 'https://windowsdemeter.com/api',
+);
+
+/// Timeout por defecto de cualquier llamada al API.
+const Duration kRequestTimeout = Duration(seconds: 20);
+
+/// Timeout del oráculo. La respuesta la redacta un modelo de lenguaje y tarda;
+/// cortar antes de tiempo puede dejar una consulta cobrada sin respuesta.
+const Duration kOracleTimeout = Duration(seconds: 120);
+
 /// Timeout de las llamadas al backend de astronomía (el render del SVG del
 /// cielo es costoso en el servidor, por eso es generoso).
 const Duration kApiTimeout = Duration(seconds: 45);
@@ -23,6 +37,10 @@ const Duration kAuthTimeout = Duration(seconds: 15);
 /// Tiempo máximo que esperamos al GPS antes de usar las coordenadas por
 /// defecto. Sin esto un GPS frío en interior puede colgar la carga inicial.
 const Duration kLocationTimeout = Duration(seconds: 12);
+
+/// Ruta de quien no tiene sesión: el splash y los 401 llevan aquí. Hoy abre el
+/// login; en la fase 2 pasa a ser el mapa de invitado.
+const String kGuestRoute = '/invitado';
 
 /// Duración mínima del splash, para que el logo no parpadee.
 const Duration kSplashMinDuration = Duration(seconds: 2);
