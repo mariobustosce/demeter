@@ -12,6 +12,7 @@ import 'screens/home_screen_v2.dart';
 import 'screens/store_screen.dart';
 import 'config/app_config.dart';
 import 'services/api_client.dart';
+import 'services/token_store.dart';
 import 'firebase_options.dart';
 
 final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
@@ -20,10 +21,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _silenceDebugPrintInRelease();
 
-  // Firebase sí debe estar listo antes del primer frame: el login lo usa.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Firebase sí debe estar listo antes del primer frame: el login lo usa. La
+  // migración del token también, porque el splash lo lee al abrir. Van en
+  // paralelo para no sumar tiempos.
+  await Future.wait<void>([
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    TokenStore().migrateLegacy(),
+  ]);
 
   // AdMob no bloquea el arranque: el banner se carga cuando el SDK esté listo,
   // y esperarlo acá retrasaba el primer frame entre 0,5 y 2 segundos.

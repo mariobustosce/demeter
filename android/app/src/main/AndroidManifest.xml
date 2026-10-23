@@ -3,10 +3,15 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Sin backup: las prefs llevan coordenadas y el almacén seguro el token.
+         allowBackup apaga la nube (y en Android 11 o menos, todo); las reglas
+         cubren el paso a otro teléfono en Android 12+. -->
     <application
         android:label="WindowsDemeter"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- TODO(admob): este es el App ID de PRUEBA de Google. Reemplazar por
              el App ID real antes de publicar. Los Ad Unit ID viven en
              lib/config/ads_config.dart. -->
