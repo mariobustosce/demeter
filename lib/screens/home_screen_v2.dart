@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../services/live_wallpaper_service.dart';
 import '../services/location_service.dart';
 import 'astral_charts_screen.dart';
+import 'landscapes_screen.dart';
 import 'oracle_consultations_screen.dart';
 import 'profile_screen.dart'; // Importar perfil
 import 'user_map_tab.dart';
@@ -426,6 +427,11 @@ class _HomeScreenV2State extends State<HomeScreenV2>
                 context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
+            } else if (value == 'landscapes') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LandscapesScreen()),
+              );
             } else if (value == 'logout') {
               await _authService.logout();
               if (context.mounted) {
@@ -441,6 +447,16 @@ class _HomeScreenV2State extends State<HomeScreenV2>
                   Icon(Icons.person_outline, color: accentCyan, size: 20),
                   SizedBox(width: 10),
                   Text("Ver Perfil", style: TextStyle(color: textColor)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'landscapes',
+              child: Row(
+                children: [
+                  Icon(Icons.landscape_outlined, color: accentCyan, size: 20),
+                  SizedBox(width: 10),
+                  Text("Mis paisajes", style: TextStyle(color: textColor)),
                 ],
               ),
             ),
