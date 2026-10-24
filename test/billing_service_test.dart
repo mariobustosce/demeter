@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:demeter/services/api_client.dart';
 import 'package:demeter/services/billing_service.dart';
 import 'package:demeter/services/coin_balance.dart';
+import 'package:demeter/services/token_store.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -65,6 +66,11 @@ void main() {
   late (int, Object) verifyResponse;
   late bool consumeWorks;
   Completer<void>? serverGate;
+  // Al abrir la compra: si Play la abre y lo que avisa por el stream.
+  late bool launchWorks;
+  List<PurchaseDetails>? onLaunch;
+  // Lo que lanza la verificación en vez de responder.
+  Object? serverThrows;
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({'sanctum_token': 'tok-1'});
@@ -78,6 +84,9 @@ void main() {
     verifyResponse = (200, verified());
     consumeWorks = true;
     serverGate = null;
+    launchWorks = true;
+    onLaunch = null;
+    serverThrows = null;
   });
 
   tearDown(() => play.close());
@@ -94,6 +103,7 @@ void main() {
           }
           verifications.add(req);
           await serverGate?.future;
+          if (serverThrows case final error?) throw error;
           final (status, body) = verifyResponse;
           return http.Response(jsonEncode(body), status, headers: _json);
         }),
@@ -102,12 +112,14 @@ void main() {
       queryPurchases: () async => owned,
       launch: (param) async {
         launched.add(param);
-        return true;
+        if (onLaunch case final events?) play.add(events);
+        return launchWorks;
       },
       consume: (purchase) async {
         log.add('consume ${purchase.verificationData.serverVerificationData}');
         return consumeWorks;
       },
+      launchGrace: Duration.zero,
     )..start();
     billing.updates.listen(updates.add);
     return billing;
@@ -149,6 +161,15 @@ void main() {
     expect(launched, isEmpty);
     expect(updates.single.outcome, PurchaseOutcome.failed);
     expect(billing.buying.value, isNull);
+  });
+
+  test('sin paquetes no le pregunta a Play, que respondería con un error', () async {
+    final billing = BillingService(
+      available: true,
+      queryProducts: (_) async => throw StateError('no debía consultar'),
+    );
+
+    expect(await billing.products({}), isEmpty);
   });
 
   test('con el 200 acredita, deja el saldo y recién entonces consume', () async {
@@ -261,15 +282,47 @@ void main() {
       expect(updates.single.outcome, PurchaseOutcome.credited);
     });
 
-    test('calla los rechazos y los errores de red', () async {
+    // Ninguno consume ni avisa, y la compra se vuelve a mandar después.
+    for (final (name, response, error) in <(String, (int, Object)?, Object?)>[
+      ('un 422', (422, {'success': false, 'message': 'Cancelada.'}), null),
+      ('un 503', (503, {'success': false, 'message': 'Google no respondió.'}), null),
+      ('sin red', null, http.ClientException('sin red')),
+      ('un error ajeno al API', null, StateError('TLS')),
+    ]) {
+      test('calla $name y la vuelve a mandar en la próxima revisión', () async {
+        owned = [purchase('compra-1')];
+        if (response != null) verifyResponse = response;
+        serverThrows = error;
+        final billing = service();
+
+        await billing.recover();
+        await pumpEventQueue();
+        expect(log, ['POST $_verify']);
+        expect(updates, isEmpty);
+
+        verifyResponse = (200, verified());
+        serverThrows = null;
+        await billing.recover();
+        expect(log, ['POST $_verify', 'POST $_verify', 'consume compra-1']);
+      });
+    }
+
+    test('un 401 deja la compra en Play para la próxima sesión', () async {
       owned = [purchase('compra-1')];
-      verifyResponse = (422, {'success': false, 'message': 'Cancelada.'});
+      verifyResponse = (401, {'message': 'Unauthenticated.'});
+      final billing = service();
 
-      await service().recover();
+      await billing.recover();
       await pumpEventQueue();
-
       expect(log, ['POST $_verify']);
       expect(updates, isEmpty);
+
+      // Vuelve a entrar.
+      FlutterSecureStorage.setMockInitialValues({'sanctum_token': 'tok-2'});
+      verifyResponse = (200, verified());
+      await billing.recover();
+      expect(log.last, 'consume compra-1');
+      expect(verifications.last.headers['Authorization'], 'Bearer tok-2');
     });
 
     test('sin sesión no manda nada', () async {
@@ -346,5 +399,109 @@ void main() {
       [PurchaseOutcome.retryLater, PurchaseOutcome.credited],
     );
     expect(billing.buying.value, isNull);
+  });
+
+  group('si Play no abre la compra', () {
+    final alreadyOwned = purchase(
+      '',
+      product: '',
+      status: PurchaseStatus.error,
+      error: IAPError(
+        source: 'google_play',
+        code: 'purchase_error',
+        message: BillingResponse.itemAlreadyOwned.toString(),
+      ),
+    );
+
+    test('porque ya hay una sin consumir: avisa una vez y luego el 422', () async {
+      // Una compra de otra cuenta de la app con la misma cuenta de Google.
+      owned = [purchase('compra-ajena'), purchase('otra', product: 'polvo_50')];
+      verifyResponse = (422, {'success': false, 'message': 'Esa compra es de otra cuenta.'});
+      launchWorks = false;
+      onLaunch = [alreadyOwned];
+      final billing = service();
+
+      await billing.buy(product('polvo_100'));
+      await pumpEventQueue();
+
+      // Solo se revisa el paquete que se quiso comprar.
+      expect([for (final r in verifications) jsonDecode(r.body)['purchase_token']], ['compra-ajena']);
+      expect([for (final u in updates) u.message], [
+        'Tienes una compra de este paquete sin terminar. La estamos revisando.',
+        'Esa compra es de otra cuenta.',
+      ]);
+      expect(log.where((e) => e.startsWith('consume')), isEmpty);
+      expect(billing.buying.value, isNull);
+    });
+
+    test('porque ya hay una pendiente: avisa que el pago está pendiente', () async {
+      owned = [purchase('compra-1', status: PurchaseStatus.pending)];
+      launchWorks = false;
+      onLaunch = [alreadyOwned];
+      final billing = service();
+
+      await billing.buy(product('polvo_100'));
+      await pumpEventQueue();
+
+      expect(verifications, isEmpty);
+      expect(
+        [for (final u in updates) u.outcome],
+        [PurchaseOutcome.retryLater, PurchaseOutcome.pending],
+      );
+    });
+
+    test('sin decir por qué: libera la tienda con un solo aviso', () async {
+      launchWorks = false;
+      final billing = service();
+
+      await billing.buy(product('polvo_100'));
+      await pumpEventQueue();
+
+      expect(updates.single.outcome, PurchaseOutcome.failed);
+      expect(billing.buying.value, isNull);
+    });
+  });
+
+  test('Play responde OK sin compras: no verifica nada y libera la tienda', () async {
+    final billing = service();
+    await billing.buy(product('polvo_100'));
+    log.clear();
+
+    play.add([purchase('', product: '')]);
+    await pumpEventQueue();
+
+    expect(log, isEmpty);
+    expect(updates, isEmpty);
+    expect(billing.buying.value, isNull);
+  });
+
+  test('un error ajeno al API al verificar no deja la tienda trabada', () async {
+    serverThrows = StateError('TLS');
+    final billing = service();
+    await billing.buy(product('polvo_100'));
+
+    play.add([purchase('compra-1')]);
+    await pumpEventQueue();
+
+    expect(log.where((e) => e.startsWith('consume')), isEmpty);
+    expect(updates.single.outcome, PurchaseOutcome.retryLater);
+    expect(billing.buying.value, isNull);
+  });
+
+  test('si se cierra la sesión mientras se verifica, consume pero no toca el saldo ni avisa',
+      () async {
+    serverGate = Completer<void>();
+    service();
+
+    play.add([purchase('compra-1')]);
+    await pumpEventQueue();
+    await TokenStore().clear(); // Logout con la verificación en vuelo.
+    serverGate!.complete();
+    await pumpEventQueue();
+
+    // El 200 ya acreditó a la cuenta que compró: se consume igual.
+    expect(log, ['POST $_verify', 'consume compra-1']);
+    expect(coinBalance.value, isNull);
+    expect(updates, isEmpty);
   });
 }

@@ -64,6 +64,7 @@ class BillingService {
     Future<ProductDetailsResponse> Function(Set<String> ids)? queryProducts,
     Future<bool> Function(PurchaseParam param)? launch,
     Future<bool> Function(PurchaseDetails purchase)? consume,
+    Duration launchGrace = const Duration(seconds: 2),
   })  : _apiOverride = api,
         _session = session ?? TokenStore(),
         _store = store ?? StoreService(api: api),
@@ -72,7 +73,8 @@ class BillingService {
         _queryPurchases = queryPurchases,
         _queryProducts = queryProducts,
         _launch = launch,
-        _consume = consume;
+        _consume = consume,
+        _launchGrace = launchGrace;
 
   /// Instancia que usa la app. Los tests pueden reemplazarla.
   static BillingService instance = BillingService();
@@ -87,6 +89,9 @@ class BillingService {
   final Future<ProductDetailsResponse> Function(Set<String>)? _queryProducts;
   final Future<bool> Function(PurchaseParam)? _launch;
   final Future<bool> Function(PurchaseDetails)? _consume;
+  // Lo que se espera a que Play diga por qué no abrió la compra.
+  final Duration _launchGrace;
+  int _attempts = 0;
 
   final StreamController<PurchaseUpdate> _updates =
       StreamController<PurchaseUpdate>.broadcast();
@@ -101,8 +106,8 @@ class BillingService {
   /// El producto que se está comprando desde la tienda, o `null`.
   final ValueNotifier<String?> buying = ValueNotifier<String?>(null);
 
-  /// Avisos para el usuario. Las compras recuperadas solo avisan si se
-  /// acreditaron.
+  /// Avisos para el usuario. Las revisiones automáticas ([recover]) solo
+  /// avisan lo acreditado.
   Stream<PurchaseUpdate> get updates => _updates.stream;
 
   /// En iOS no se vende nada: Apple exige su propio sistema de pago y el
@@ -128,7 +133,8 @@ class BillingService {
   /// Los productos de Play de estos paquetes, por id. Los que Play no
   /// conoce no vienen.
   Future<Map<String, ProductDetails>> products(Set<String> ids) async {
-    if (!available) return const {};
+    // Sin paquetes, Play respondería con un error.
+    if (!available || ids.isEmpty) return const {};
     if (_queryProducts == null && !await InAppPurchase.instance.isAvailable()) {
       throw const BillingException(
         'Google Play no está disponible en este teléfono.',
@@ -152,6 +158,7 @@ class BillingService {
   Future<void> buy(ProductDetails product) async {
     if (!available || buying.value != null) return;
     buying.value = product.id;
+    final attempt = ++_attempts;
     try {
       // Fija por usuario, pero el contrato pide no guardarla.
       final accountId = (await _store.catalog()).accountId;
@@ -162,14 +169,7 @@ class BillingService {
         productDetails: product,
         applicationUserName: accountId,
       ));
-      if (!launched) {
-        // Puede ser una compra anterior de ese paquete sin consumir.
-        unawaited(recover());
-        _finish(product.id, const PurchaseUpdate(
-          PurchaseOutcome.failed,
-          'No se pudo abrir la compra de Google Play.',
-        ));
-      }
+      if (!launched) _releaseLater(product.id, attempt);
     } on ApiException catch (e) {
       _finish(product.id, PurchaseUpdate(PurchaseOutcome.failed, e.message));
     } on BillingException catch (e) {
@@ -184,20 +184,43 @@ class BillingService {
   }
 
   /// Vuelve a mandar al servidor lo que Play tiene sin consumir. Va al entrar
-  /// con sesión y al volver a la app. Nunca lanza.
-  Future<void> recover() async {
-    if (!available || await _session.read() == null) return;
+  /// con sesión y al volver a la app, y solo avisa lo acreditado. Nunca
+  /// lanza.
+  Future<void> recover() => _recover();
+
+  /// Igual que [recover], pero solo con [product] y avisando todo: el usuario
+  /// quiso comprarlo y Play dice que ya tiene una compra sin consumir.
+  Future<void> _recover({String? product}) async {
+    final notify = product != null;
     try {
+      if (!available || await _session.read() == null) return;
       final purchases = await (_queryPurchases ?? _pastPurchases)();
       for (final purchase in purchases) {
-        // Las pendientes las avisa Play por el stream cuando se pagan.
+        if (notify && purchase.productID != product) continue;
         if (purchase.status == PurchaseStatus.purchased) {
-          await _handle(purchase, notify: false);
+          await _handle(purchase, notify: notify);
+        } else if (notify && purchase.status == PurchaseStatus.pending) {
+          // Si no, las pendientes las avisa Play por el stream al pagarse.
+          _updates.add(_pending);
         }
       }
     } catch (e) {
       debugPrint('Compras: no se revisaron las pendientes (${e.runtimeType}).');
     }
+  }
+
+  /// Play no abrió la compra: suele decir por qué en el stream (por ejemplo,
+  /// que ya hay una de ese paquete sin consumir). Si no lo dice, se libera la
+  /// tienda con un aviso genérico.
+  void _releaseLater(String product, int attempt) {
+    Timer(_launchGrace, () {
+      if (attempt != _attempts || buying.value != product) return;
+      _finish(product, const PurchaseUpdate(
+        PurchaseOutcome.failed,
+        'No se pudo abrir la compra de Google Play.',
+      ));
+      unawaited(recover());
+    });
   }
 
   Future<void> _handle(PurchaseDetails purchase, {required bool notify}) async {
@@ -210,34 +233,46 @@ class BillingService {
         _finish(product, null);
         return;
       case PurchaseStatus.error:
-        _finish(product, _playError(purchase));
+        // Un error sin compras llega sin producto: es el que se compraba.
+        _finish(product, _playError(purchase, product.isEmpty ? buying.value : product));
         return;
       case PurchaseStatus.purchased:
       case PurchaseStatus.restored:
         final token = purchase.verificationData.serverVerificationData;
-        if (token.isEmpty || _consumed.contains(token)) return;
+        // Play respondió OK sin compras: no hay nada que verificar.
+        if (token.isEmpty) {
+          _finish(product, null);
+          return;
+        }
+        if (_consumed.contains(token)) return;
         if (_inFlight.containsKey(token)) {
           if (notify) _inFlight[token] = true;
           return;
         }
         _inFlight[token] = notify;
+        PurchaseUpdate? update;
         try {
-          final update = await _verify(purchase, token);
-          // Se avisa si alguna de las dos vías lo pedía.
-          final tell = _inFlight[token] == true ||
-              update?.outcome == PurchaseOutcome.credited;
-          _finish(product, tell ? update : null);
-        } finally {
-          _inFlight.remove(token);
+          update = await _verify(purchase, token);
+        } catch (e) {
+          // Algo ajeno al API (TLS, almacenamiento…) no deja la tienda
+          // trabada. La compra sigue en Play.
+          debugPrint('Compras: no se verificó (${e.runtimeType}).');
+          update = _retryLater('No pudimos confirmar tu compra.');
         }
+        // Se avisa si alguna de las dos vías lo pedía.
+        final tell = _inFlight.remove(token) == true ||
+            update?.outcome == PurchaseOutcome.credited;
+        _finish(product, tell ? update : null);
     }
   }
 
   /// Manda la compra al servidor y la consume solo si respondió 200.
   Future<PurchaseUpdate?> _verify(PurchaseDetails purchase, String token) async {
     // Sin sesión no hay a quién acreditarla: queda en Play para después.
-    if (await _session.read() == null) return null;
-    final Map<String, dynamic> body;
+    final session = await _session.read();
+    if (session == null) return null;
+    Map<String, dynamic>? body;
+    PurchaseUpdate? rejected;
     try {
       body = jsonMap(await _api.post('/store/google-play/verificar', body: {
         'product_id': purchase.productID,
@@ -245,21 +280,27 @@ class BillingService {
       }));
     } on ApiException catch (e) {
       // 422 rechazada, 503 Google no respondió, sin red…: no se consume.
-      return e.statusCode == 422
+      rejected = e.statusCode == 422
           ? PurchaseUpdate(PurchaseOutcome.failed, e.message)
           : _retryLater(e.message);
     }
 
-    updateCoinBalance(body['saldo']);
+    // Si entretanto se cerró la sesión (o entró otra cuenta), el saldo y los
+    // avisos ya no son de quien está. Con el 200 se consume igual: el polvo
+    // ya está en la cuenta que compró.
+    final sameSession = await _session.read() == session;
+    if (body == null) return sameSession ? rejected : null;
+
+    if (sameSession) updateCoinBalance(body['saldo']);
     // 202: Google todavía no cobra. Se vuelve a mandar cuando Play avise.
-    if (body['pendiente'] == true) return _pending;
+    if (body['pendiente'] == true) return sameSession ? _pending : null;
     if (body['success'] != true) {
-      return _retryLater('No pudimos confirmar tu compra.');
+      return sameSession ? _retryLater('No pudimos confirmar tu compra.') : null;
     }
 
     if (await _consumeQuietly(purchase)) _consumed.add(token);
     // `acreditado: false` es un reintento de algo ya acreditado.
-    if (body['acreditado'] != true) return null;
+    if (!sameSession || body['acreditado'] != true) return null;
     final coins = body['polvo'];
     return PurchaseUpdate(
       PurchaseOutcome.credited,
@@ -285,10 +326,11 @@ class BillingService {
     }
   }
 
-  PurchaseUpdate _playError(PurchaseDetails purchase) {
+  PurchaseUpdate _playError(PurchaseDetails purchase, String? product) {
     if (purchase.error?.message == BillingResponse.itemAlreadyOwned.toString()) {
-      // Quedó sin consumir una compra anterior de ese paquete.
-      unawaited(recover());
+      // Quedó sin consumir una compra anterior de ese paquete: se revisa y
+      // se avisa cómo terminó (acreditada, rechazada, pendiente…).
+      unawaited(product == null ? recover() : _recover(product: product));
       return const PurchaseUpdate(
         PurchaseOutcome.retryLater,
         'Tienes una compra de este paquete sin terminar. La estamos revisando.',
