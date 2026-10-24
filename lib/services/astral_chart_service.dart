@@ -33,8 +33,9 @@ class AstralChartService {
           'titulo': title,
           'birth_date': birthDate,
           'birth_time': birthTime,
-          'birth_lat': birthLat,
-          'birth_lon': birthLon,
+          // Con más de 4 decimales el servidor no detecta la carta repetida.
+          'birth_lat': double.parse(birthLat.toStringAsFixed(4)),
+          'birth_lon': double.parse(birthLon.toStringAsFixed(4)),
           'timezone': timezone,
         },
       );

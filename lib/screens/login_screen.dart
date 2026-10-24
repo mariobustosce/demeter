@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/auth_service.dart';
+import 'two_factor_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -47,6 +48,14 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
       Navigator.pushReplacementNamed(context, '/home');
+    } on TwoFactorRequired catch (challenge) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TwoFactorScreen(desafio: challenge.desafio),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
 

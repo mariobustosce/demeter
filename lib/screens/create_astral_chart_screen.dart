@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
 import '../services/astral_chart_service.dart';
 import '../services/sky_service.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -45,30 +46,34 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
   Future<List<LocationSuggestion>> _searchLocations(String query) async {
     if (query.length < 3) return []; // Minimum 3 characters to search
 
-    final url = 'https://nominatim.openstreetmap.org/search?format=json&q=$query&limit=5';
+    // Uri.https codifica la búsqueda; la política de Nominatim pide un
+    // User-Agent que identifique la app.
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+      'format': 'json',
+      'q': query,
+      'limit': '5',
+    });
     try {
       final response = await http.get(
-        Uri.parse(url),
+        uri,
         headers: {
-          'User-Agent': 'DemeterApp/1.0 (Flutter; Location Search)',
+          'User-Agent': kNominatimUserAgent,
           'Accept': 'application/json',
         },
-      );
-      debugPrint('API Response status: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List;
-        debugPrint('API Response data length: ${data.length}');
-        return data.map((item) => LocationSuggestion(
-          display: item['display_name'] ?? 'Unknown',
-          lat: double.tryParse(item['lat'] ?? '0') ?? 0.0,
-          lon: double.tryParse(item['lon'] ?? '0') ?? 0.0,
-        )).toList();
-      } else {
-        debugPrint('API Error: ${response.body}');
+      ).timeout(kRequestTimeout);
+      if (response.statusCode != 200) {
+        debugPrint('Nominatim → ${response.statusCode}');
         return [];
       }
+      final data = json.decode(response.body) as List;
+      return data.map((item) => LocationSuggestion(
+        display: item['display_name'] ?? 'Unknown',
+        lat: double.tryParse(item['lat'] ?? '0') ?? 0.0,
+        lon: double.tryParse(item['lon'] ?? '0') ?? 0.0,
+      )).toList();
     } catch (e) {
-      debugPrint('Exception in _searchLocations: $e');
+      // Sin la búsqueda ni la URL: pueden decir dónde nació alguien.
+      debugPrint('Nominatim falló (${e.runtimeType}).');
       return [];
     }
   }
@@ -391,6 +396,8 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                   ),
                 ),
                 suggestionsCallback: _searchLocations,
+                // Nominatim admite como máximo una búsqueda por segundo.
+                debounceDuration: const Duration(seconds: 1),
                 itemBuilder: (context, suggestion) => Container(
                   color: cardBackground,
                   child: ListTile(
@@ -402,8 +409,8 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                 ),
                 onSelected: (suggestion) {
                   _searchController.text = suggestion.display;
-                  _latController.text = suggestion.lat.toString();
-                  _lonController.text = suggestion.lon.toString();
+                  _latController.text = suggestion.lat.toStringAsFixed(4);
+                  _lonController.text = suggestion.lon.toStringAsFixed(4);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Coordenadas: ${suggestion.lat}, ${suggestion.lon}'),

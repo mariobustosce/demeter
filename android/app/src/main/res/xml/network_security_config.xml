@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo HTTPS. En debug, src/debug/res/xml/ reemplaza este archivo y permite
+     el servidor local demeter.test. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

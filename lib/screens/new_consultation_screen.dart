@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../config/ads_config.dart';
 import '../services/astral_chart_service.dart';
+import '../services/auth_service.dart';
+import '../services/coin_balance.dart';
 import '../services/oracle_service.dart';
 import '../services/sky_service.dart';
 
@@ -42,6 +45,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
     super.initState();
     _loadCharts();
     _createInterstitialAd();
+    if (coinBalance.value == null) AuthService().getMe();
   }
 
   Future<void> _loadCharts() async {
@@ -71,7 +75,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
 
   void _createInterstitialAd() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712', // TODO: reemplazar por tu Ad Unit ID real
+      adUnitId: AdsConfig.interstitialAdUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (InterstitialAd ad) {
@@ -169,8 +173,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
     if (result['success']) {
       setState(() {
         _isConsulting = false;
-        _response = result['response'];
-        // TODO: Actualizar balance global si es necesario result['nuevoBalance']
+        _response = result['response']; // El saldo ya se actualizó.
       });
     } else {
       setState(() {
@@ -290,6 +293,21 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  ValueListenableBuilder<int?>(
+                    valueListenable: coinBalance,
+                    builder: (context, coins, _) => coins == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Tu saldo: $coins ✨',
+                              style: const TextStyle(
+                                color: secondaryTextColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white10),

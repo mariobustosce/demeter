@@ -12,6 +12,7 @@ import 'screens/home_screen_v2.dart';
 import 'screens/store_screen.dart';
 import 'config/app_config.dart';
 import 'services/api_client.dart';
+import 'services/auth_service.dart';
 import 'services/token_store.dart';
 import 'firebase_options.dart';
 
@@ -25,7 +26,7 @@ void main() async {
   // migración del token también, porque el splash lo lee al abrir. Van en
   // paralelo para no sumar tiempos.
   await Future.wait<void>([
-    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    _initializeFirebase(),
     TokenStore().migrateLegacy(),
   ]);
 
@@ -41,12 +42,25 @@ void main() async {
 void _handleGlobalApiErrors() {
   ApiClient.instance
     ..onSessionExpired = () {
+      unawaited(AuthService().clearLocalSession());
       _navigatorKey.currentState
           ?.pushNamedAndRemoveUntil(kGuestRoute, (_) => false);
     }
     ..onInsufficientCoins = (_) {
       _navigatorKey.currentState?.pushNamed('/store');
     };
+}
+
+/// Sin Firebase la app arranca igual y solo falla el login con Google. Pasa en
+/// iOS mientras no se corra `flutterfire configure`.
+Future<void> _initializeFirebase() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase no se inicializó (${e.runtimeType}).');
+  }
 }
 
 Future<void> _initializeAds() async {
@@ -65,6 +79,7 @@ void _silenceDebugPrintInRelease() {
   }
 }
 
+/// Solo Android: lo arranca `CelestialWallpaperService`. En iOS nadie lo llama.
 @pragma('vm:entry-point')
 void wallpaperMain() {
   WidgetsFlutterBinding.ensureInitialized();

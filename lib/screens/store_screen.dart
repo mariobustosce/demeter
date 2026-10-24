@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,6 +28,12 @@ class StoreScreen extends StatefulWidget {
 class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
   final StoreService _storeService = StoreService();
   final ProfileService _profileService = ProfileService();
+
+  // DECISIÓN PENDIENTE antes de la App Store: Apple exige su propio sistema
+  // de pago para bienes digitales, y el servidor solo verifica compras de
+  // Google Play. Mientras tanto, en iOS se ve el saldo y se gasta, pero no se
+  // vende nada.
+  bool get _canBuy => defaultTargetPlatform != TargetPlatform.iOS;
 
   bool _isLoading = true;
   bool _isCreatingCheckout = false;
@@ -550,23 +557,31 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                 children: [
                   _buildBalanceCard(),
                   const SizedBox(height: 18),
-                  _buildPendingCard(),
-                  if (_pendingOrder != null) const SizedBox(height: 18),
-                  const Text(
-                    'Packs disponibles',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  if (!_canBuy)
+                    const Text(
+                      'Por ahora el polvo estelar no se vende en iPhone. '
+                      'Puedes usar el que ya tienes.',
+                      style: TextStyle(color: secondaryTextColor),
+                    )
+                  else ...[
+                    _buildPendingCard(),
+                    if (_pendingOrder != null) const SizedBox(height: 18),
+                    const Text(
+                      'Packs disponibles',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Selecciona un pack y completa la compra en Mercado Pago. Luego vuelve a la app para verificar el estado.',
-                    style: TextStyle(color: secondaryTextColor, fontSize: 12),
-                  ),
-                  const SizedBox(height: 18),
-                  ..._packages.map(_buildPackageCard),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Selecciona un pack y completa la compra en Mercado Pago. Luego vuelve a la app para verificar el estado.',
+                      style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                    ),
+                    const SizedBox(height: 18),
+                    ..._packages.map(_buildPackageCard),
+                  ],
                 ],
               ),
             ),

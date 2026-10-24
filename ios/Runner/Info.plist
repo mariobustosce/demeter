@@ -2,10 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
-		<!-- TODO: Reemplazar con tu AdMob App ID real -->
+		<!-- TODO(admob): App ID de PRUEBA. Reemplazar por el real, junto con
+		     los Ad Unit ID de lib/config/ads_config.dart. -->
 		<key>GADApplicationIdentifier</key>
 		<string>ca-app-pub-3940256099942544~1458002511</string>
-		
+
+		<!-- TODO(google-sign-in): tras `flutterfire configure`, agregar
+		     GIDClientID (CLIENT_ID) y un CFBundleURLTypes con el
+		     REVERSED_CLIENT_ID, ambos de GoogleService-Info.plist. -->
+
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Tu ubicación sirve para mostrarte el cielo que tienes encima.</string>
+
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>

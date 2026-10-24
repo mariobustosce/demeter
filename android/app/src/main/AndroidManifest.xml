@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -11,9 +12,10 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules">
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:networkSecurityConfig="@xml/network_security_config">
         <!-- TODO(admob): este es el App ID de PRUEBA de Google. Reemplazar por
-             el App ID real antes de publicar. Los Ad Unit ID viven en
+             el App ID real antes de publicar, junto con los Ad Unit ID de
              lib/config/ads_config.dart. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"

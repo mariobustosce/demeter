@@ -287,9 +287,12 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
       if (lat == null || lng == null) return false;
 
       // Guardar las últimas coordenadas para usar al actualizar wallpaper
-      try {
-        await persistWallpaperCoordinates(lat: lat, lon: lng);
-      } catch (_) {}
+      // (solo Android: en iOS no hay fondo y no se guardan).
+      if (Platform.isAndroid) {
+        try {
+          await persistWallpaperCoordinates(lat: lat, lon: lng);
+        } catch (_) {}
+      }
 
       // El widget puede haberse desmontado durante el await anterior
       if (!mounted) return false;
@@ -1603,7 +1606,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
                 );
               } else if (value == 'logout') {
                 await _authService.logout();
-                if (mounted) Navigator.pushReplacementNamed(context, "/login");
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(context, kGuestRoute, (_) => false);
+                }
               }
             },
             itemBuilder: (context) => [
@@ -1662,7 +1667,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> with WidgetsBindingObserver
             FutureBuilder<Map<String, dynamic>?>(
               future: _canvasMapFuture,
               builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data != null) {
+                // El fondo de pantalla solo existe en Android.
+                if (Platform.isAndroid &&
+                    snapshot.hasData &&
+                    snapshot.data != null) {
                   final apiData = snapshot.data!;
                   return Row(
                     mainAxisSize: MainAxisSize.min,

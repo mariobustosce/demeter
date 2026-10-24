@@ -1,18 +1,13 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Dónde vive el token Sanctum: en el almacén seguro (Keystore en Android,
-/// Keychain en iOS). Todo acceso pasa por aquí.
+import 'secure_storage.dart';
+
+/// Dónde vive el token Sanctum: en el almacén seguro. Todo acceso pasa por
+/// aquí.
 class TokenStore {
   static const String _key = 'sanctum_token';
-
-  // En iOS el token no sale del equipo: no va en copias ni pasa a otro iPhone.
-  static const FlutterSecureStorage _secure = FlutterSecureStorage(
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
-  );
+  static const _secure = secureStorage;
 
   Future<String?> read() async {
     final token = await _secure.read(key: _key);

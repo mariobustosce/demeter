@@ -26,9 +26,13 @@ val releaseStoreFile = (keystoreProperties["storeFile"] as String?)
     }
     ?.takeIf { it.exists() }
 
-if (releaseStoreFile == null) {
-    throw GradleException(
-        "Release signing config is invalid: create android/key.properties and ensure storeFile points to an existing keystore."
+// Sin clave el release se firma con la de debug: sirve para probar en un
+// teléfono, pero Play lo rechaza. Debug nunca necesita key.properties.
+if (releaseStoreFile == null &&
+    gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
+) {
+    logger.warn(
+        "Sin android/key.properties válido: el release se firma con la clave de debug y no sirve para Play."
     )
 }
 
@@ -63,18 +67,22 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = releaseStoreFile
-            storePassword = keystoreProperties["storePassword"] as String?
-            keyAlias = keystoreProperties["keyAlias"] as String?
-            keyPassword = keystoreProperties["keyPassword"] as String?
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties["storePassword"] as String?
+                keyAlias = keystoreProperties["keyAlias"] as String?
+                keyPassword = keystoreProperties["keyPassword"] as String?
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

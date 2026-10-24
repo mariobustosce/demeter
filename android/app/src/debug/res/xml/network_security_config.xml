@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo en debug: HTTP hacia el servidor local de Laragon, con
+     dart-define API_BASE=http://demeter.test/api. Un comentario XML no admite
+     dos guiones seguidos: por eso no va el comando completo. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">demeter.test</domain>
+    </domain-config>
+</network-security-config>

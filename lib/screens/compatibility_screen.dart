@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../config/ads_config.dart';
 import '../services/astral_chart_service.dart';
 import '../services/oracle_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -68,7 +69,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
 
   void _createInterstitialAd() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712', // TODO: reemplazar por tu Ad Unit ID real
+      adUnitId: AdsConfig.interstitialAdUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (InterstitialAd ad) {

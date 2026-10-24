@@ -42,5 +42,10 @@ const Duration kLocationTimeout = Duration(seconds: 12);
 /// login; en la fase 2 pasa a ser el mapa de invitado.
 const String kGuestRoute = '/invitado';
 
+/// User-Agent para Nominatim: su política pide identificar la app y un
+/// contacto.
+const String kNominatimUserAgent =
+    'WindowsDemeter-App/1.0 (+https://windowsdemeter.com)';
+
 /// Duración mínima del splash, para que el logo no parpadee.
 const Duration kSplashMinDuration = Duration(seconds: 2);

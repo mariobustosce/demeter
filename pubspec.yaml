@@ -49,6 +49,7 @@ dependencies:
   google_mobile_ads: ^7.0.0
   flutter_typeahead: ^5.0.2
   flutter_secure_storage: ^11.2.0
+  webview_flutter: 4.13.1
 
 dev_dependencies:
   flutter_test:

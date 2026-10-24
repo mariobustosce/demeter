@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import 'api_client.dart';
+import 'auth_service.dart';
+import 'coin_balance.dart';
 
 class OracleService {
   ApiClient get _api => ApiClient.instance;
@@ -27,6 +31,7 @@ class OracleService {
         timeout: kOracleTimeout,
       ));
 
+      updateCoinBalance(responseData['nuevo_balance']);
       if (responseData['success'] == true) {
         return {
           'success': true,
@@ -41,7 +46,7 @@ class OracleService {
     } on InsufficientCoinsException catch (e) {
       return _insufficientCoins(e);
     } catch (e) {
-      return {'success': false, 'error': _errorMessage(e)};
+      return _failed(e);
     }
   }
 
@@ -63,6 +68,7 @@ class OracleService {
         timeout: kOracleTimeout,
       ));
 
+      updateCoinBalance(responseData['nuevo_balance']);
       if (responseData['success'] == true) {
         return {
           'success': true,
@@ -77,7 +83,7 @@ class OracleService {
     } on InsufficientCoinsException catch (e) {
       return _insufficientCoins(e);
     } catch (e) {
-      return {'success': false, 'error': _errorMessage(e)};
+      return _failed(e);
     }
   }
 
@@ -118,12 +124,22 @@ class OracleService {
   }
 
   // El ApiClient ya abrió la tienda; esto es el mensaje para la pantalla.
-  Map<String, dynamic> _insufficientCoins(InsufficientCoinsException e) => {
-        'success': false,
-        'error': 'Polvo estelar insuficiente',
-        'details': 'Necesitas ${e.required} y tienes ${e.balance}.',
-      };
+  Map<String, dynamic> _insufficientCoins(InsufficientCoinsException e) {
+    updateCoinBalance(e.balance);
+    return {
+      'success': false,
+      'error': 'Polvo estelar insuficiente',
+      'details': 'Necesitas ${e.required} y tienes ${e.balance}.',
+    };
+  }
 
-  String _errorMessage(Object e) =>
-      e is ApiException ? e.message : 'Error desconocido';
+  // Si la IA falló, el servidor devolvió el polvo pero el error no trae
+  // `nuevo_balance`: el saldo se vuelve a pedir a /me.
+  Map<String, dynamic> _failed(Object e) {
+    unawaited(AuthService().getMe());
+    return {
+      'success': false,
+      'error': e is ApiException ? e.message : 'Error desconocido',
+    };
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../config/app_config.dart';
 import '../models/referral_payload.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
@@ -158,7 +159,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () async {
                 Navigator.pop(ctx);
                 await _authService.logout();
-                if (mounted) Navigator.pushReplacementNamed(context, "/login");
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(context, kGuestRoute, (_) => false);
+                }
               },
               child: const Text(
                 "Entendido",
@@ -230,7 +233,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               if (success) {
                 await _authService.logout();
-                if (mounted) Navigator.pushReplacementNamed(context, "/login");
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(context, kGuestRoute, (_) => false);
+                }
               } else {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
