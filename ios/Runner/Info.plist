@@ -11,6 +11,12 @@
 		     GIDClientID (CLIENT_ID) y un CFBundleURLTypes con el
 		     REVERSED_CLIENT_ID, ambos de GoogleService-Info.plist. -->
 
+		<!-- TODO(push): tras `flutterfire configure`, subir la clave APNs (.p8)
+		     en Firebase → Configuración del proyecto → Cloud Messaging, y
+		     activar en Xcode (Runner → Signing & Capabilities) «Push
+		     Notifications» y «Background Modes → Remote notifications». Sin
+		     eso no llega ningún aviso a un iPhone. -->
+
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Tu ubicación sirve para mostrarte el cielo que tienes encima.</string>
 

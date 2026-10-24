@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0B0E17</color>
+    <!-- El cian de la app, para el icono de las notificaciones. -->
+    <color name="notificacion">#4FD0E7</color>
 </resources>

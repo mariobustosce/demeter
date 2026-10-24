@@ -6,10 +6,12 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../config/app_config.dart';
 import '../models/auth_response.dart';
 import '../models/user.dart';
+import 'alerts_service.dart';
 import 'api_client.dart';
 import 'coin_balance.dart';
 import 'device_name.dart';
 import 'map_view_service.dart';
+import 'push_service.dart';
 import 'token_store.dart';
 
 class AuthService {
@@ -170,7 +172,8 @@ class AuthService {
 
   /// Cierra la sesión en el servidor y borra lo del usuario en el equipo.
   Future<void> logout() async {
-    // Fase 4: antes de esto, DELETE /api/dispositivos {fcm_token}.
+    // Antes del logout: después el token ya no sirve para borrar el teléfono.
+    await _quietly(PushService.instance.unregister);
     await _quietly(() => _api.post('/logout'));
     await clearLocalSession();
   }
@@ -183,6 +186,8 @@ class AuthService {
     await _quietly(_tokens.clear);
     MapViewService.instance.clear();
     coinBalance.value = null;
+    unreadAlerts.value = null;
+    await PushService.instance.forget();
     await _quietly(() => fba.FirebaseAuth.instance.signOut());
     await _quietly(() => GoogleSignIn().signOut());
     await _quietly(_clearWebView);

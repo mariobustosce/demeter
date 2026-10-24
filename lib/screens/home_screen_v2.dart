@@ -9,10 +9,15 @@ import 'package:async_wallpaper/async_wallpaper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/ads_config.dart';
 import '../config/app_config.dart';
+import '../models/aviso.dart';
+import '../services/alerts_service.dart';
 import '../services/auth_service.dart';
 import '../services/live_wallpaper_service.dart';
 import '../services/location_service.dart';
+import '../services/push_service.dart';
+import 'alerts_tab.dart';
 import 'astral_charts_screen.dart';
+import 'avisos_screen.dart';
 import 'landscapes_screen.dart';
 import 'oracle_consultations_screen.dart';
 import 'profile_screen.dart'; // Importar perfil
@@ -39,9 +44,14 @@ class _HomeScreenV2State extends State<HomeScreenV2>
   final AuthService _authService = AuthService();
 
   // MAPA, CONSULTAS, CARTAS y ALERTAS.
+  static const int _alertsTab = 3;
   late final TabController _tabs = TabController(length: 4, vsync: this)
     ..addListener(_onTabChanged);
   bool _mapActive = true;
+  bool _alertsActive = false;
+
+  final PushService _push = PushService.instance;
+  StreamSubscription<Aviso>? _received;
 
   // AdMob banner
   BannerAd? _bannerAd;
@@ -75,11 +85,22 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     // Abrir la app es una acción explícita: el fondo se refresca sin esperar
     // el intervalo.
     _updateWallpaperIfNeeded(force: true);
+
+    // Con sesión: el teléfono se registra para el push (sin pedir permiso),
+    // y un aviso que llega o se toca se refleja aquí.
+    unawaited(_push.register());
+    unawaited(_refreshUnreadAlerts());
+    _received = _push.received.listen((_) => _refreshUnreadAlerts());
+    _push.openedAviso.addListener(_openTappedAviso);
+    // La app pudo abrirse tocando una notificación.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openTappedAviso());
   }
 
   @override
   void dispose() {
     _bannerAd?.dispose();
+    _received?.cancel();
+    _push.openedAviso.removeListener(_openTappedAviso);
     WidgetsBinding.instance.removeObserver(this);
     _tabs.dispose();
     super.dispose();
@@ -90,13 +111,54 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     // Volver de background no es una acción explícita del usuario, así que
     // acá sí respetamos el intervalo mínimo entre refrescos del fondo. El
     // mapa se cuida solo (MapWebView).
-    if (state == AppLifecycleState.resumed) _updateWallpaperIfNeeded();
+    if (state == AppLifecycleState.resumed) {
+      _updateWallpaperIfNeeded();
+      unawaited(_refreshUnreadAlerts());
+    }
   }
 
-  /// El WebView del mapa solo está en pantalla con su pestaña a la vista.
+  /// El WebView del mapa solo está en pantalla con su pestaña a la vista, y
+  /// las alertas se recargan al volver a la suya.
   void _onTabChanged() {
-    final active = _tabs.index == 0;
-    if (active != _mapActive) setState(() => _mapActive = active);
+    final map = _tabs.index == 0;
+    final alerts = _tabs.index == _alertsTab;
+    if (map != _mapActive || alerts != _alertsActive) {
+      setState(() {
+        _mapActive = map;
+        _alertsActive = alerts;
+      });
+    }
+  }
+
+  /// El número de avisos sin leer de la pestaña ALERTAS. Nunca lanza.
+  Future<void> _refreshUnreadAlerts() async {
+    try {
+      await AlertsService().list();
+    } catch (e) {
+      debugPrint('Sin la cuenta de avisos (${e.runtimeType}).');
+    }
+  }
+
+  /// Abre el aviso de la notificación que tocó el usuario y lo marca leído.
+  /// Al cerrarlo queda en ALERTAS.
+  void _openTappedAviso() {
+    final aviso = _push.openedAviso.value;
+    if (aviso == null || !mounted) return;
+    _push.openedAviso.value = null;
+    _tabs.animateTo(_alertsTab);
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => AvisosScreen(opened: aviso),
+    ));
+  }
+
+  /// Sin favoritos no llegan avisos: al mapa, donde se guarda «Mi ubicación».
+  void _goCreateFavorite() {
+    _tabs.animateTo(0);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Toca ☆ junto al lugar para guardarlo en tus favoritos.'),
+      ));
   }
 
   /// Refresca el fondo del sistema si el usuario lo habilitó.
@@ -499,7 +561,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
               Tab(text: "MAPA"),
               Tab(text: "CONSULTAS"),
               Tab(text: "CARTAS"),
-              Tab(text: "ALERTAS"),
+              Tab(child: _AlertsTabLabel()),
             ],
           ),
         ),
@@ -530,7 +592,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
             UserMapTab(active: _mapActive, footer: _bannerSlot()),
             const OracleConsultationsScreen(),
             const AstralChartsScreen(),
-            const _AlertsTab(),
+            AlertsTab(active: _alertsActive, onCreateFavorite: _goCreateFavorite),
           ],
         ),
       ),
@@ -538,33 +600,33 @@ class _HomeScreenV2State extends State<HomeScreenV2>
   }
 }
 
-/// Las alertas llegan en la fase 4: clima, catástrofes y avisos astrológicos.
-class _AlertsTab extends StatelessWidget {
-  const _AlertsTab();
+/// «ALERTAS» con los avisos sin leer, como la campana 🔔 de la web.
+class _AlertsTabLabel extends StatelessWidget {
+  const _AlertsTabLabel();
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.notifications_none_rounded, color: secondaryTextColor, size: 48),
-            SizedBox(height: 16),
-            Text(
-              "Alertas",
-              style: TextStyle(color: textColor, fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text(
-              "Muy pronto: alertas climáticas, catástrofes en curso y avisos "
-              "astrológicos para tus lugares favoritos.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: secondaryTextColor, fontSize: 13),
+    return ValueListenableBuilder<int?>(
+      valueListenable: unreadAlerts,
+      builder: (context, unread, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text("ALERTAS"),
+          if (unread != null && unread > 0) ...[
+            const SizedBox(width: 3),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                unread > 9 ? "9+" : "$unread",
+                style: const TextStyle(color: backgroundColor, fontSize: 8.5),
+              ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

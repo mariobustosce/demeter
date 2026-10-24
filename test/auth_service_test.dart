@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:demeter/services/api_client.dart';
 import 'package:demeter/services/auth_service.dart';
 import 'package:demeter/services/device_name.dart';
+import 'package:demeter/services/push_service.dart';
 import 'package:demeter/services/token_store.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +49,32 @@ void main() {
     expect(requests.single.headers['Authorization'], 'Bearer tok-1');
     expect(await TokenStore().read(), isNull);
     expect(await prefsKeys(), isEmpty);
+  });
+
+  test('logout: borra el teléfono del push antes de cerrar la sesión', () async {
+    serverAnswers(200, {'success': true});
+    var deleted = 0;
+    PushService.instance = PushService(
+      available: true,
+      getToken: () async => 'fcm-token-de-prueba-con-mas-de-20-caracteres',
+      deleteToken: () async => deleted++,
+    );
+    addTearDown(() => PushService.instance = PushService());
+    await PushService.instance.register();
+    requests.clear();
+
+    await AuthService().logout();
+
+    // Después del logout el token ya no serviría para borrarlo.
+    expect(
+      [for (final r in requests) '${r.method} ${r.url.path}'],
+      ['DELETE /api/dispositivos', 'POST /api/logout'],
+    );
+    expect(jsonDecode(requests.first.body), {
+      'fcm_token': 'fcm-token-de-prueba-con-mas-de-20-caracteres',
+    });
+    // Y el token de FCM se va del teléfono.
+    expect(deleted, 1);
   });
 
   test('logout sin red: borra igual lo del equipo', () async {

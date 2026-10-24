@@ -53,6 +53,9 @@ dependencies:
   # Directo solo para los ajustes de Android del mapa (archivos, contenido
   # mixto); es la versión que ya traía webview_flutter.
   webview_flutter_android: 4.11.0
+  firebase_messaging: ^16.7.1
+  flutter_local_notifications: ^22.3.2
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:

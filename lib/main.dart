@@ -14,6 +14,7 @@ import 'screens/store_screen.dart';
 import 'config/app_config.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/push_service.dart';
 import 'services/token_store.dart';
 import 'widgets/map_web_view.dart';
 import 'firebase_options.dart';
@@ -35,6 +36,9 @@ void main() async {
   // AdMob no bloquea el arranque: el banner se carga cuando el SDK esté listo,
   // y esperarlo acá retrasaba el primer frame entre 0,5 y 2 segundos.
   unawaited(_initializeAds());
+  // El push tampoco: el aviso tocado espera en PushService a la pantalla
+  // principal. No pide permiso.
+  unawaited(PushService.instance.start());
 
   _handleGlobalApiErrors();
   runApp(const MyApp());
