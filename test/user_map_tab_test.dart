@@ -249,7 +249,35 @@ void main() {
     expect(loaded().last.path, '/app/mapa/t/v1/basico/f/2');
   });
 
-  testWidgets('manteniendo un chip se renombra; si no se ve, el mapa no recarga',
+  testWidgets('el botón despliega los lugares y cambia de favorito y a «Mi ubicación»',
+      (tester) async {
+    server.favorites = [
+      {'id': 1, 'titulo': 'Casa'},
+      {'id': 2, 'titulo': 'Playa'},
+    ];
+    await open(tester);
+    expect(loaded().last.path, '/app/mapa/t/v1/basico/f/1');
+    expect(find.text('Casa'), findsOneWidget);
+    expect(find.text('Playa'), findsNothing, reason: 'cerrado solo muestra el lugar que se ve');
+
+    await tester.tap(find.byTooltip('Favoritos'));
+    await frames(tester);
+    expect(find.text('Mi ubicación'), findsOneWidget);
+    await tester.tap(find.text('Playa'));
+    await frames(tester);
+    expect(loaded().last.path, '/app/mapa/t/v1/basico/f/2');
+    expect(find.text('Playa'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Favoritos'));
+    await frames(tester);
+    await tester.tap(find.text('Mi ubicación'));
+    await frames(tester);
+    expect(loaded().last.path, '/app/mapa/t/v1/basico');
+    expect(loaded().last.queryParameters['lat'], '-33.46');
+    expect(find.byTooltip('Guardar en favoritos'), findsOneWidget);
+  });
+
+  testWidgets('el ⋮ de un favorito de la lista lo renombra; si no se ve, el mapa no recarga',
       (tester) async {
     server.favorites = [
       {'id': 1, 'titulo': 'Casa'},
@@ -258,7 +286,9 @@ void main() {
     await open(tester);
     final before = loaded().length;
 
-    await tester.longPress(find.text('Playa'));
+    await tester.tap(find.byTooltip('Favoritos'));
+    await frames(tester);
+    await tester.tap(find.byTooltip('Opciones de «Playa»'));
     await frames(tester);
     await tester.tap(find.text('Cambiar el nombre'));
     await frames(tester);
@@ -268,7 +298,10 @@ void main() {
 
     final patch = server.last('PATCH', '/api/favoritos/2');
     expect(jsonDecode(patch.body), {'titulo': 'Playa Brava'});
-    expect(find.text('Playa Brava'), findsOneWidget);
     expect(loaded().length, before);
+
+    await tester.tap(find.byTooltip('Favoritos'));
+    await frames(tester);
+    expect(find.text('Playa Brava'), findsOneWidget);
   });
 }

@@ -23,10 +23,10 @@ const int _maxTitleLength = 60;
 
 enum _FavoriteAction { landscape, rename, remove }
 
-/// Pestaña MAPA con sesión: el mapa del token de vista, con chips de
-/// «Mi ubicación» y de los favoritos. «Mi ubicación» se guarda con ★; un
-/// favorito tiene sus opciones en ⋮ (o manteniendo su chip): paisaje, nombre
-/// y quitar.
+/// Pestaña MAPA con sesión: el mapa del token de vista, con un botón que
+/// despliega «Mi ubicación» y los favoritos. «Mi ubicación» se guarda con ★;
+/// un favorito tiene sus opciones en ⋮ (el que se ve, junto al botón; los
+/// demás, en la lista): paisaje, nombre y quitar.
 class UserMapTab extends StatefulWidget {
   const UserMapTab({super.key, required this.active, this.footer, this.favorites});
 
@@ -288,31 +288,19 @@ class _UserMapTabState extends State<UserMapTab>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 6, 12, 6),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Row(
             children: [
               Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      _PlaceChip(
-                        icon: Icons.my_location_rounded,
-                        label: 'Mi ubicación',
-                        selected: _ready && favoriteId == null,
-                        onTap: _ready ? _selectMyLocation : null,
-                      ),
-                      for (final favorite in _favorites)
-                        _PlaceChip(
-                          icon: Icons.star_rounded,
-                          label: favorite.title,
-                          selected: favorite.id == favoriteId,
-                          onTap: () => _selectFavorite(favorite),
-                          onLongPress: () => _openActions(favorite),
-                        ),
-                    ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _PlaceMenu(
+                    favorites: _favorites,
+                    shown: shown,
+                    enabled: _ready,
+                    onMyLocation: _selectMyLocation,
+                    onFavorite: _selectFavorite,
+                    onOptions: _openActions,
                   ),
                 ),
               ),
@@ -350,52 +338,134 @@ class _UserMapTabState extends State<UserMapTab>
   }
 }
 
-class _PlaceChip extends StatelessWidget {
-  const _PlaceChip({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.onLongPress,
+/// El lugar que se ve, en un botón que despliega «Mi ubicación» y los
+/// favoritos, como la web en el teléfono. Una fila de chips no cabía junto al
+/// modo: se veían uno y medio, y el resto quedaba fuera de la pantalla.
+class _PlaceMenu extends StatelessWidget {
+  const _PlaceMenu({
+    required this.favorites,
+    required this.shown,
+    required this.enabled,
+    required this.onMyLocation,
+    required this.onFavorite,
+    required this.onOptions,
   });
 
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
+  final List<Favorite> favorites;
+  final Favorite? shown; // null: «Mi ubicación»
+  final bool enabled;
+  final VoidCallback onMyLocation;
+  final ValueChanged<Favorite> onFavorite;
+  final ValueChanged<Favorite> onOptions;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? _accentCyan : _secondaryTextColor;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onLongPress: onLongPress,
-        child: ChoiceChip(
-          selected: selected,
-          onSelected: onTap == null ? null : (_) => onTap!(),
-          showCheckmark: false,
-          avatar: Icon(icon, size: 16, color: color),
-          label: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
+    final shown = this.shown;
+    // Cada opción lleva lo que hace al elegirla.
+    return PopupMenuButton<VoidCallback>(
+      tooltip: 'Favoritos',
+      enabled: enabled,
+      onSelected: (action) => action(),
+      color: _sheetBackground,
+      position: PopupMenuPosition.under,
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 320),
+      itemBuilder: (_) => [
+        _item(
+          icon: Icons.my_location_rounded,
+          label: 'Mi ubicación',
+          selected: shown == null,
+          action: onMyLocation,
+        ),
+        const PopupMenuDivider(),
+        for (final favorite in favorites)
+          _item(
+            icon: Icons.star_rounded,
+            label: favorite.title,
+            selected: favorite.id == shown?.id,
+            action: () => onFavorite(favorite),
+            options: () => onOptions(favorite),
+          ),
+        if (favorites.isEmpty)
+          const PopupMenuItem(
+            enabled: false,
+            child: Text(
+              'Aún no tienes favoritos. Guarda este lugar con ☆.',
+              style: TextStyle(color: _secondaryTextColor, fontSize: 13),
+            ),
+          ),
+      ],
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.only(left: 12, right: 6),
+        decoration: BoxDecoration(
+          color: _cardBackground,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: _accentCyan.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              shown == null ? Icons.my_location_rounded : Icons.star_rounded,
+              color: enabled ? _accentCyan : _secondaryTextColor,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                shown?.title ?? 'Mi ubicación',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down, color: _textColor, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Con [options], un ⋮ que cierra la lista y abre las opciones del favorito.
+  PopupMenuItem<VoidCallback> _item({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback action,
+    VoidCallback? options,
+  }) {
+    return PopupMenuItem(
+      value: action,
+      padding: EdgeInsets.only(left: 12, right: options == null ? 12 : 0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: selected ? _accentCyan : _secondaryTextColor),
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? _textColor : _secondaryTextColor,
-                fontSize: 12,
+                color: _textColor,
+                fontSize: 14,
                 fontWeight: selected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
-          backgroundColor: _cardBackground,
-          selectedColor: _accentCyan.withValues(alpha: 0.18),
-          side: BorderSide(color: color.withValues(alpha: 0.4)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
+          if (options != null)
+            Builder(
+              builder: (context) => IconButton(
+                tooltip: 'Opciones de «$label»',
+                icon: const Icon(Icons.more_vert_rounded, size: 18),
+                color: _secondaryTextColor,
+                visualDensity: VisualDensity.compact,
+                onPressed: () => Navigator.pop(context, options),
+              ),
+            ),
+        ],
       ),
     );
   }
