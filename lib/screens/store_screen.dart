@@ -1,14 +1,10 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
-import '../models/checkout_response.dart';
-import '../models/order_status_response.dart';
 import '../models/store_package.dart';
-import '../models/user.dart';
-import '../services/profile_service.dart';
+import '../services/auth_service.dart';
+import '../services/billing_service.dart';
+import '../services/coin_balance.dart';
 import '../services/store_service.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
@@ -18,201 +14,69 @@ const cardBackground = Color(0xEF0F172A);
 const textColor = Color(0xFFF7FAFC);
 const secondaryTextColor = Color(0xFF94A3B8);
 
+/// Un paquete del servidor con su producto de Play, que trae el precio.
+typedef _Offer = ({StorePackage package, ProductDetails product});
+
+/// Compra de polvo estelar con Google Play. El resultado de cada compra lo
+/// avisa la app entera (main.dart), aunque se cierre esta pantalla.
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key});
+  const StoreScreen({super.key, this.billing, this.store});
+
+  final BillingService? billing;
+  final StoreService? store;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
 
-class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
-  final StoreService _storeService = StoreService();
-  final ProfileService _profileService = ProfileService();
+class _StoreScreenState extends State<StoreScreen> {
+  late final BillingService _billing = widget.billing ?? BillingService.instance;
+  late final StoreService _store = widget.store ?? StoreService();
 
   // DECISIÓN PENDIENTE antes de la App Store: Apple exige su propio sistema
   // de pago para bienes digitales, y el servidor solo verifica compras de
   // Google Play. Mientras tanto, en iOS se ve el saldo y se gasta, pero no se
   // vende nada.
-  bool get _canBuy => defaultTargetPlatform != TargetPlatform.iOS;
+  bool get _canBuy => _billing.available;
 
   bool _isLoading = true;
-  bool _isCreatingCheckout = false;
-  List<StorePackage> _packages = [];
-  User? _user;
-  CheckoutResponse? _checkoutResponse;
-  OrderStatusResponse? _pendingOrder;
-  Timer? _pollTimer;
+  String? _error;
+  List<_Offer> _offers = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _loadStore();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _pollTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        _pendingOrder != null &&
-        !_pendingOrder!.isFinished) {
-      _refreshPendingOrder(silent: false);
-    }
-  }
-
   Future<void> _loadStore() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final user = await _profileService.getProfile();
-      final packages = await _storeService.getPackages();
-
-      if (!mounted) return;
-
-      setState(() {
-        _user = user;
-        _packages = packages;
-        _isLoading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_readableError(error)),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
-  }
-
-  String _readableError(Object error) {
-    return error.toString().replaceFirst('Exception: ', '');
-  }
-
-  Future<void> _startCheckout(StorePackage package) async {
-    setState(() => _isCreatingCheckout = true);
-
-    try {
-      final response = await _storeService.createCheckout(package.id);
-      final uri = Uri.tryParse(response.checkout.initPoint);
-
-      setState(() {
-        _checkoutResponse = response;
-        _pendingOrder = OrderStatusResponse.fromCheckoutOrder(response.order);
-      });
-
-      _startPolling();
-
-      if (uri == null) {
-        throw Exception('La URL de checkout no es válida.');
-      }
-
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) {
-        throw Exception('No se pudo abrir Mercado Pago desde el dispositivo.');
-      }
-    } catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_readableError(error)),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isCreatingCheckout = false);
-      }
-    }
-  }
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _refreshPendingOrder(silent: true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
     });
-  }
 
-  Future<void> _refreshPendingOrder({required bool silent}) async {
-    final externalReference =
-        _pendingOrder?.externalReference ??
-        _checkoutResponse?.checkout.externalReference;
-    if (externalReference == null || externalReference.isEmpty) {
-      return;
-    }
-
+    // El saldo pudo cambiar en la web. getMe no lanza.
+    final balance = AuthService().getMe();
     try {
-      final order = await _storeService.getOrderStatus(externalReference);
-      if (!mounted) return;
-
-      final previousStatus = _pendingOrder?.status;
-      setState(() {
-        _pendingOrder = order;
-      });
-
-      if (order.isFinished) {
-        _pollTimer?.cancel();
-        final refreshedUser = await _profileService.getProfile();
-        if (!mounted) return;
-
-        setState(() {
-          _user = refreshedUser;
+      if (_canBuy) {
+        final catalog = await _store.catalog();
+        final products = await _billing.products({
+          for (final package in catalog.packages) package.productId,
         });
-
-        if (previousStatus != order.status || !silent) {
-          _showOrderStatusMessage(order);
-        }
+        // Un paquete que Play aún no tiene (o no publicó) no se muestra.
+        _offers = [
+          for (final package in catalog.packages)
+            if (products[package.productId] case final product?)
+              (package: package, product: product),
+        ];
       }
     } catch (error) {
-      if (!mounted || silent) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_readableError(error)),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _error = error.toString();
     }
-  }
+    await balance;
 
-  void _showOrderStatusMessage(OrderStatusResponse order) {
-    Color background;
-    String text;
-
-    switch (order.status) {
-      case 'approved':
-        background = Colors.green;
-        text = 'Compra aprobada. Tu saldo ya fue actualizado.';
-        break;
-      case 'rejected':
-        background = Colors.redAccent;
-        text = 'La compra fue rechazada.';
-        break;
-      case 'cancelled':
-        background = Colors.orange;
-        text = 'La compra fue cancelada.';
-        break;
-      default:
-        background = accentPurple;
-        text = 'La compra sigue pendiente.';
-        break;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(text), backgroundColor: background));
+    if (!mounted) return;
+    setState(() => _isLoading = false);
   }
 
   IconData _iconForPackage(String iconName) {
@@ -239,13 +103,6 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
     }
   }
 
-  String _formatPrice(int price) {
-    return price.toString().replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (match) => '.',
-    );
-  }
-
   Widget _buildBalanceCard() {
     return Container(
       width: double.infinity,
@@ -253,14 +110,14 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            accentCyan.withOpacity(0.18),
-            accentPurple.withOpacity(0.22),
+            accentCyan.withValues(alpha: 0.18),
+            accentPurple.withValues(alpha: 0.22),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accentCyan.withOpacity(0.18)),
+        border: Border.all(color: accentCyan.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,119 +132,34 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            '${_user?.celestialCoins ?? 0}',
-            style: const TextStyle(
-              color: textColor,
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
+          ValueListenableBuilder<int?>(
+            valueListenable: coinBalance,
+            builder: (context, coins, _) => Text(
+              coins == null ? '—' : '$coins',
+              style: const TextStyle(
+                color: textColor,
+                fontSize: 34,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Las compras se acreditan solo cuando Mercado Pago confirma el pago.',
-            style: TextStyle(color: secondaryTextColor, fontSize: 12),
-          ),
+          if (_canBuy) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Las compras se acreditan cuando el servidor las confirma con '
+              'Google Play.',
+              style: TextStyle(color: secondaryTextColor, fontSize: 12),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildPendingCard() {
-    if (_pendingOrder == null) {
-      return const SizedBox.shrink();
-    }
-
-    final order = _pendingOrder!;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBackground.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accentPurple.withOpacity(0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long_rounded, color: accentPurple),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Orden ${order.externalReference}',
-                  style: const TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Estado: ${order.status}',
-            style: const TextStyle(color: secondaryTextColor),
-          ),
-          Text(
-            'Monto: CLP ${_formatPrice(order.amountClp)}',
-            style: const TextStyle(color: secondaryTextColor),
-          ),
-          Text(
-            'Polvo: ${order.coinsAmount}',
-            style: const TextStyle(color: secondaryTextColor),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _refreshPendingOrder(silent: false),
-                  icon: const Icon(Icons.refresh, color: accentCyan),
-                  label: const Text(
-                    'Revisar estado',
-                    style: TextStyle(color: accentCyan),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: accentCyan.withOpacity(0.35)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _checkoutResponse == null
-                      ? null
-                      : () async {
-                          final uri = Uri.tryParse(
-                            _checkoutResponse!.checkout.initPoint,
-                          );
-                          if (uri != null) {
-                            await launchUrl(
-                              uri,
-                              mode: LaunchMode.externalApplication,
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.open_in_new, color: backgroundColor),
-                  label: const Text(
-                    'Abrir checkout',
-                    style: TextStyle(color: backgroundColor),
-                  ),
-                  style: ElevatedButton.styleFrom(backgroundColor: accentCyan),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPackageCard(StorePackage package) {
+  Widget _buildPackageCard(_Offer offer, String? buying) {
+    final package = offer.package;
     final color = _colorForPackage(package.color);
+    final isBuyingThis = buying == package.productId;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -396,13 +168,13 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
         color: cardBackground,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: color.withOpacity(package.highlight ? 0.55 : 0.2),
+          color: color.withValues(alpha: package.highlight ? 0.55 : 0.2),
           width: package.highlight ? 1.4 : 1,
         ),
         boxShadow: package.highlight
             ? [
                 BoxShadow(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   blurRadius: 24,
                   offset: const Offset(0, 12),
                 ),
@@ -418,7 +190,7 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(_iconForPackage(package.icon), color: color),
@@ -430,12 +202,14 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          package.name,
-                          style: const TextStyle(
-                            color: textColor,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Text(
+                            package.name,
+                            style: const TextStyle(
+                              color: textColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         if (package.highlight) ...[
@@ -446,7 +220,7 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.amber.withOpacity(0.12),
+                              color: Colors.amber.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
@@ -461,14 +235,16 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      package.description,
-                      style: const TextStyle(
-                        color: secondaryTextColor,
-                        fontSize: 12,
+                    if (package.description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        package.description,
+                        style: const TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -486,8 +262,9 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                 ),
               ),
               const Spacer(),
+              // El de Play, en la moneda del usuario.
               Text(
-                'CLP ${_formatPrice(package.priceClp)}',
+                offer.product.price,
                 style: const TextStyle(
                   color: textColor,
                   fontSize: 18,
@@ -500,15 +277,15 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isCreatingCheckout
+              onPressed: buying != null
                   ? null
-                  : () => _startCheckout(package),
+                  : () => _billing.buy(offer.product),
               style: ElevatedButton.styleFrom(
                 backgroundColor: color,
                 foregroundColor: backgroundColor,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: _isCreatingCheckout
+              child: isBuyingThis
                   ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -518,7 +295,7 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                       ),
                     )
                   : const Text(
-                      'Comprar con Mercado Pago',
+                      'Comprar',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
             ),
@@ -526,6 +303,44 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildOffers() {
+    if (_error != null) {
+      return [
+        Text(_error!, style: const TextStyle(color: secondaryTextColor)),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _loadStore,
+            icon: const Icon(Icons.refresh, color: accentCyan),
+            label: const Text(
+              'Reintentar',
+              style: TextStyle(color: accentCyan),
+            ),
+          ),
+        ),
+      ];
+    }
+    if (_offers.isEmpty) {
+      return const [
+        Text(
+          'Por ahora no hay packs a la venta. Vuelve a intentarlo más tarde.',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+      ];
+    }
+    return [
+      ValueListenableBuilder<String?>(
+        valueListenable: _billing.buying,
+        builder: (context, buying, _) => Column(
+          children: [
+            for (final offer in _offers) _buildPackageCard(offer, buying),
+          ],
+        ),
+      ),
+    ];
   }
 
   @override
@@ -564,8 +379,6 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                       style: TextStyle(color: secondaryTextColor),
                     )
                   else ...[
-                    _buildPendingCard(),
-                    if (_pendingOrder != null) const SizedBox(height: 18),
                     const Text(
                       'Packs disponibles',
                       style: TextStyle(
@@ -576,11 +389,11 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Selecciona un pack y completa la compra en Mercado Pago. Luego vuelve a la app para verificar el estado.',
+                      'El pago lo hace Google Play, en tu moneda.',
                       style: TextStyle(color: secondaryTextColor, fontSize: 12),
                     ),
                     const SizedBox(height: 18),
-                    ..._packages.map(_buildPackageCard),
+                    ..._buildOffers(),
                   ],
                 ],
               ),

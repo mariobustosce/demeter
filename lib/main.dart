@@ -13,6 +13,7 @@ import 'screens/store_screen.dart';
 import 'config/app_config.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/billing_service.dart';
 import 'services/live_wallpaper.dart';
 import 'services/push_service.dart';
 import 'services/token_store.dart';
@@ -20,6 +21,8 @@ import 'widgets/map_web_view.dart';
 import 'firebase_options.dart';
 
 final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> _messengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,9 +44,29 @@ void main() async {
   unawaited(PushService.instance.start());
   // Las prefs del fondo de antes llevaban coordenadas.
   unawaited(forgetLegacyWallpaper());
+  // Las compras de Play se escuchan desde el arranque, para no perder las que
+  // lleguen con la app abierta. Las sin consumir se revisan con sesión.
+  BillingService.instance.start();
 
   _handleGlobalApiErrors();
+  _showPurchaseUpdates();
   runApp(const MyApp());
+}
+
+/// El resultado de una compra se avisa en cualquier pantalla: puede llegar
+/// tras cerrar la tienda o al volver a abrir la app.
+void _showPurchaseUpdates() {
+  BillingService.instance.updates.listen((update) {
+    _messengerKey.currentState?.showSnackBar(SnackBar(
+      content: Text(update.message),
+      backgroundColor: switch (update.outcome) {
+        PurchaseOutcome.credited => Colors.green,
+        PurchaseOutcome.pending => const Color(0xFF8B5CF6),
+        PurchaseOutcome.retryLater => Colors.orange,
+        PurchaseOutcome.failed => Colors.redAccent,
+      },
+    ));
+  });
 }
 
 /// Errores del API que se resuelven igual desde cualquier pantalla.
@@ -93,6 +116,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
+      scaffoldMessengerKey: _messengerKey,
       navigatorObservers: [mapRouteObserver],
       debugShowCheckedModeBanner:
           false, // Quitar etiqueta 'Debug' para más limpieza

@@ -8,6 +8,7 @@ import '../config/app_config.dart';
 import '../models/aviso.dart';
 import '../services/alerts_service.dart';
 import '../services/auth_service.dart';
+import '../services/billing_service.dart';
 import '../services/push_service.dart';
 import '../widgets/wallpaper_sheet.dart';
 import 'alerts_tab.dart';
@@ -81,6 +82,8 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     // y un aviso que llega o se toca se refleja aquí.
     unawaited(_push.register());
     unawaited(_refreshUnreadAlerts());
+    // Compras de Play que el servidor todavía no confirmó.
+    unawaited(BillingService.instance.recover());
     _received = _push.received.listen((_) => _refreshUnreadAlerts());
     _push.openedAviso.addListener(_openTappedAviso);
     // La app pudo abrirse tocando una notificación.
@@ -99,10 +102,11 @@ class _HomeScreenV2State extends State<HomeScreenV2>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Pudo llegar un aviso con la app en segundo plano. El mapa se cuida solo
-    // (MapWebView).
+    // Pudo llegar un aviso con la app en segundo plano, o pagarse una compra
+    // pendiente. El mapa se cuida solo (MapWebView).
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshUnreadAlerts());
+      unawaited(BillingService.instance.recover());
     }
   }
 

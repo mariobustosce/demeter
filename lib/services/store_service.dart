@@ -1,31 +1,26 @@
-import '../models/checkout_response.dart';
-import '../models/order_status_response.dart';
 import '../models/store_package.dart';
 import 'api_client.dart';
 
+/// Los paquetes de polvo estelar que se venden en Google Play.
 class StoreService {
-  ApiClient get _api => ApiClient.instance;
+  StoreService({ApiClient? api}) : _apiOverride = api;
 
-  Future<List<StorePackage>> getPackages() async {
-    final body = jsonMap(await _api.get('/store/packages'));
-    final data = (body['data'] as List?) ?? const [];
-    return data
-        .whereType<Map>()
-        .map((item) => StorePackage.fromJson(item.cast<String, dynamic>()))
-        .toList();
-  }
+  final ApiClient? _apiOverride;
+  ApiClient get _api => _apiOverride ?? ApiClient.instance;
 
-  Future<CheckoutResponse> createCheckout(int packageId) async {
-    final body = await _api.post(
-      '/store/checkout',
-      body: {'package_id': packageId},
+  /// Sin `plataforma=android` el servidor manda los de Mercado Pago.
+  Future<StoreCatalog> catalog() async {
+    final body = jsonMap(
+      await _api.get('/store/packages', query: {'plataforma': 'android'}),
     );
-    return CheckoutResponse.fromJson(jsonMap(body));
-  }
-
-  Future<OrderStatusResponse> getOrderStatus(String externalReference) async {
-    final reference = Uri.encodeComponent(externalReference);
-    final body = await _api.get('/store/orders/$reference');
-    return OrderStatusResponse.fromJson(jsonMap(body));
+    final accountId = body['obfuscated_account_id']?.toString() ?? '';
+    final raw = body['data'];
+    return StoreCatalog(
+      accountId: accountId.isEmpty ? null : accountId,
+      packages: [
+        if (raw is List)
+          for (final item in raw) ?StorePackage.fromJson(item),
+      ],
+    );
   }
 }
