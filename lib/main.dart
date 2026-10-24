@@ -48,7 +48,7 @@ void main() async {
   // lleguen con la app abierta. Las sin consumir se revisan con sesión.
   BillingService.instance.start();
 
-  _handleGlobalApiErrors();
+  wireGlobalApiErrors();
   _showPurchaseUpdates();
   runApp(const MyApp());
 }
@@ -69,8 +69,9 @@ void _showPurchaseUpdates() {
   });
 }
 
-/// Errores del API que se resuelven igual desde cualquier pantalla.
-void _handleGlobalApiErrors() {
+/// Errores del API que se resuelven igual desde cualquier pantalla. Pública
+/// para que los tests comprueben la navegación (401 → invitado, 403 → tienda).
+void wireGlobalApiErrors() {
   ApiClient.instance
     ..onSessionExpired = () {
       unawaited(AuthService().clearLocalSession());

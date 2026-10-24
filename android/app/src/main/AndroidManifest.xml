@@ -9,6 +9,15 @@
     <uses-feature
         android:name="android.software.live_wallpaper"
         android:required="false" />
+    <!-- La ubicación también es opcional (el invitado funciona sin ella); sin
+         esto, ACCESS_FINE_LOCATION implica GPS obligatorio y Play oculta la
+         app a tablets y equipos sin GPS. -->
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location.network"
+        android:required="false" />
 
     <!-- Sin backup: las prefs llevan coordenadas y el almacén seguro el token.
          allowBackup apaga la nube (y en Android 11 o menos, todo); las reglas

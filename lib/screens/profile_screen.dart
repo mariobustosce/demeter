@@ -3,13 +3,14 @@ import 'package:flutter/services.dart';
 
 import '../config/app_config.dart';
 import '../models/referral_payload.dart';
+import '../services/coin_balance.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import '../models/user.dart';
 import 'store_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -76,10 +77,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (success) {
       await _loadProfile();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Perfil actualizado con éxito.")),
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Error al actualizar perfil.")),
       );
@@ -136,6 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       confirm,
     );
     setState(() => _isLoading = false);
+    if (!mounted) return;
 
     if (result['success']) {
       _currentPasswordController.clear();
@@ -274,11 +278,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           labelText: label,
           labelStyle: const TextStyle(color: Color(0xFF4FD0E7)),
           filled: true,
-          fillColor: const Color(0xFF0F172A).withOpacity(0.5),
+          fillColor: const Color(0xFF0F172A).withValues(alpha: 0.5),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(
-              color: const Color(0xFF4FD0E7).withOpacity(0.2),
+              color: const Color(0xFF4FD0E7).withValues(alpha: 0.2),
             ),
           ),
           focusedBorder: OutlineInputBorder(
@@ -338,8 +342,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          accentCyan.withOpacity(0.18),
-                          const Color(0xFF7C3AED).withOpacity(0.22),
+                          accentCyan.withValues(alpha: 0.18),
+                          const Color(0xFF7C3AED).withValues(alpha: 0.22),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -349,12 +353,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${_user?.celestialCoins ?? 0} Polvo Estelar',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        // El saldo vivo: una compra de Play puede acreditarse
+                        // con esta pantalla ya abierta.
+                        ValueListenableBuilder<int?>(
+                          valueListenable: coinBalance,
+                          builder: (_, saldo, _) => Text(
+                            '${saldo ?? _user?.celestialCoins ?? 0} Polvo Estelar',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -400,7 +409,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                 style: OutlinedButton.styleFrom(
                                   side: BorderSide(
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: Colors.white.withValues(alpha: 0.4),
                                   ),
                                 ),
                                 icon: const Icon(
@@ -424,9 +433,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: cardColor.withOpacity(0.4),
+                      color: cardColor.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: accentCyan.withOpacity(0.1)),
+                      border: Border.all(color: accentCyan.withValues(alpha: 0.1)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,9 +487,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: cardColor.withOpacity(0.4),
+                        color: cardColor.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: accentCyan.withOpacity(0.1)),
+                        border: Border.all(color: accentCyan.withValues(alpha: 0.1)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,9 +548,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: cardColor.withOpacity(0.4),
+                      color: cardColor.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: accentCyan.withOpacity(0.1)),
+                      border: Border.all(color: accentCyan.withValues(alpha: 0.1)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

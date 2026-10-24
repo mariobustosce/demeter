@@ -217,7 +217,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
              Text(
               'Sincronía Astral',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -244,7 +244,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -257,7 +257,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: isSelected ? accentPurple.withOpacity(0.2) : Colors.transparent,
+                  color: isSelected ? accentPurple.withValues(alpha: 0.2) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -311,7 +311,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -369,7 +369,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentPurple.withOpacity(0.3)),
+        border: Border.all(color: accentPurple.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

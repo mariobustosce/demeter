@@ -45,7 +45,7 @@ class ConsultationDetailScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: cardBackground,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: accentCyan.withOpacity(0.3)),
+                border: Border.all(color: accentCyan.withValues(alpha: 0.3)),
               ),
               child: Text(
                 modelo,
@@ -100,7 +100,7 @@ class ConsultationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,7 +110,7 @@ class ConsultationDetailScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: backgroundColor,
               shape: BoxShape.circle,
-              border: Border.all(color: accentCyan.withOpacity(0.5)),
+              border: Border.all(color: accentCyan.withValues(alpha: 0.5)),
             ),
             child: const Icon(Icons.person, color: accentCyan, size: 20),
           ),
@@ -155,16 +155,16 @@ class ConsultationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: backgroundColor.withOpacity(0.5),
+              color: backgroundColor.withValues(alpha: 0.5),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
             ),
             child: Row(
               children: [
@@ -192,7 +192,7 @@ class ConsultationDetailScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: nivelColor.withOpacity(0.2),
+                    color: nivelColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -229,7 +229,7 @@ class ConsultationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +292,7 @@ class ConsultationDetailScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.6),
+                  color: backgroundColor.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SingleChildScrollView(
@@ -337,9 +337,9 @@ class ConsultationDetailScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +355,7 @@ class ConsultationDetailScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
+                    color: color.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -374,7 +374,7 @@ class ConsultationDetailScreen extends StatelessWidget {
           if (data['energia'] != null)
             Text(
               'Energía: ${data['energia']}',
-              style: TextStyle(color: color.withOpacity(0.7), fontSize: 11),
+              style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 11),
             ),
           if (data['fase'] != null)
             Text(
@@ -401,9 +401,9 @@ class ConsultationDetailScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: accentPurple.withOpacity(0.1),
+                  color: accentPurple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: accentPurple.withOpacity(0.2)),
+                  border: Border.all(color: accentPurple.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   children: [
@@ -431,9 +431,9 @@ class ConsultationDetailScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.1),
+                  color: Colors.indigo.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.indigo.withOpacity(0.2)),
+                  border: Border.all(color: Colors.indigo.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   children: [
@@ -478,9 +478,9 @@ class ConsultationDetailScreen extends StatelessWidget {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: backgroundColor.withOpacity(0.6),
+                color: backgroundColor.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: accentCyan.withOpacity(0.2)),
+                border: Border.all(color: accentCyan.withValues(alpha: 0.2)),
               ),
               child: Text(
                 planeta.toString(),
@@ -499,7 +499,7 @@ class ConsultationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -560,15 +560,15 @@ class ConsultationDetailScreen extends StatelessWidget {
       margin: const EdgeInsets.all(4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: TextStyle(color: color.withOpacity(0.7), fontSize: 10),
+            style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 10),
           ),
           const SizedBox(height: 4),
           Text(

@@ -121,14 +121,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      hintStyle: TextStyle(color: secondaryTextColor.withOpacity(0.5)),
+      hintStyle: TextStyle(color: secondaryTextColor.withValues(alpha: 0.5)),
       labelStyle: const TextStyle(color: secondaryTextColor),
       prefixIcon: Icon(icon, color: secondaryTextColor),
       filled: true,
-      fillColor: Colors.black.withOpacity(0.25),
+      fillColor: Colors.black.withValues(alpha: 0.25),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: accentCyan.withOpacity(0.2)),
+        borderSide: BorderSide(color: accentCyan.withValues(alpha: 0.2)),
       ),
       focusedBorder: const OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -173,10 +173,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: BoxDecoration(
                     color: cardBackground,
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: accentPurple.withOpacity(0.25)),
+                    border: Border.all(color: accentPurple.withValues(alpha: 0.25)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.75),
+                        color: Colors.black.withValues(alpha: 0.75),
                         blurRadius: 32,
                         offset: const Offset(0, 18),
                       ),

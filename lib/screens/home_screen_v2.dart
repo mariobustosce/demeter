@@ -190,7 +190,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
           color: cardBackground,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: accentCyan.withOpacity(0.2)),
+            side: BorderSide(color: accentCyan.withValues(alpha: 0.2)),
           ),
           onSelected: (value) async {
             if (value == 'profile') {
@@ -246,16 +246,16 @@ class _HomeScreenV2State extends State<HomeScreenV2>
         title: Container(
           height: 38,
           decoration: BoxDecoration(
-            color: cardBackground.withOpacity(0.5),
+            color: cardBackground.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: accentCyan.withOpacity(0.1)),
+            border: Border.all(color: accentCyan.withValues(alpha: 0.1)),
           ),
           child: TabBar(
             controller: _tabs,
             dividerColor: Colors.transparent,
             indicator: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: accentCyan.withOpacity(0.1),
+              color: accentCyan.withValues(alpha: 0.1),
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             labelColor: accentCyan,

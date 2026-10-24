@@ -245,7 +245,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF15151D),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -254,9 +254,9 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                   // Selector de Tipo
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                     child: Row(
                       children: [
@@ -288,7 +288,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                       Text(
                         '- ${_getCostDetails()['tokens']} TOKENS',
                         style: TextStyle(
-                          color: secondaryTextColor.withOpacity(0.7),
+                          color: secondaryTextColor.withValues(alpha: 0.7),
                           fontStyle: FontStyle.italic,
                           fontSize: 12,
                         ),
@@ -375,10 +375,10 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: accentCyan.withOpacity(0.3),
+                                color: accentCyan.withValues(alpha: 0.3),
                               ),
                             ),
                             child: DropdownButtonHideUnderline(
@@ -439,7 +439,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF15151D),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -461,10 +461,10 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: accentPurple.withOpacity(0.1),
+                        color: accentPurple.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: accentPurple.withOpacity(0.3),
+                          color: accentPurple.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -508,10 +508,10 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                       decoration: InputDecoration(
                         hintText: 'Escribe tu consulta al universo...',
                         hintStyle: TextStyle(
-                          color: secondaryTextColor.withOpacity(0.5),
+                          color: secondaryTextColor.withValues(alpha: 0.5),
                         ),
                         filled: true,
-                        fillColor: Colors.black.withOpacity(0.2),
+                        fillColor: Colors.black.withValues(alpha: 0.2),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -538,7 +538,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                             : _submitConsultation,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accentPurple,
-                          disabledBackgroundColor: accentPurple.withOpacity(
+                          disabledBackgroundColor: accentPurple.withValues(alpha: 
                             0.3,
                           ),
                           padding: const EdgeInsets.symmetric(
@@ -607,7 +607,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isSelected
-                ? accentPurple.withOpacity(0.3)
+                ? accentPurple.withValues(alpha: 0.3)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(

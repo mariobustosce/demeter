@@ -205,7 +205,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
           color: cardBackground,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withValues(alpha: 0.05),
           ),
         ),
         child: Column(
@@ -341,7 +341,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
           margin: const EdgeInsets.only(bottom: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.white.withOpacity(0.05)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -355,7 +355,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: accentPurple.withOpacity(0.15),
+                        color: accentPurple.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -384,7 +384,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
@@ -400,7 +400,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
+                                  color: Colors.white.withValues(alpha: 0.05),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
@@ -479,8 +479,8 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                           height: 110,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-                            color: Colors.black.withOpacity(0.2),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                            color: Colors.black.withValues(alpha: 0.2),
                           ),
                           child: Stack(
                             alignment: Alignment.center,
@@ -523,7 +523,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: accentCyan,
-                          side: BorderSide(color: accentCyan.withOpacity(0.2)),
+                          side: BorderSide(color: accentCyan.withValues(alpha: 0.2)),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -536,9 +536,9 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                     const SizedBox(width: 12),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.05),
+                        color: Colors.red.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withOpacity(0.2)),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
                       ),
                       child: IconButton(
                         onPressed: () => _confirmDelete(context, chart),

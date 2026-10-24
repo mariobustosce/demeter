@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/astral_chart_service.dart';
-import '../services/sky_service.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -38,7 +37,6 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
   final _lonController = TextEditingController();
 
   final AstralChartService _chartService = AstralChartService();
-  final SkyService _skyService = SkyService();
   String _selectedTimezone = 'UTC';
   bool _useManualLocation = true;
   bool _isLoading = false;
@@ -196,7 +194,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,7 +306,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
             decoration: BoxDecoration(
               color: Colors.black26,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: Row(
               children: [
@@ -319,7 +317,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: _useManualLocation
-                            ? accentCyan.withOpacity(0.2)
+                            ? accentCyan.withValues(alpha: 0.2)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -347,7 +345,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: !_useManualLocation
-                            ? accentCyan.withOpacity(0.2)
+                            ? accentCyan.withValues(alpha: 0.2)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -380,7 +378,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0F172A),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               child: TypeAheadField<LocationSuggestion>(
                 controller: _searchController,
@@ -422,7 +420,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                   decoration: BoxDecoration(
                     color: cardBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
                   child: child,
                 ),
@@ -467,9 +465,9 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Column(
                 children: [
@@ -492,7 +490,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                   OutlinedButton(
                     onPressed: () {},
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                       backgroundColor: Colors.transparent,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12),
@@ -526,7 +524,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
             decoration: BoxDecoration(
               color: Colors.black26,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -633,7 +631,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: TextField(
         controller: controller,

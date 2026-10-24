@@ -151,7 +151,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                   ),
                   child: const Icon(Icons.menu_book, color: accentCyan, size: 20),
                 ),
@@ -188,7 +188,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
             color: const Color(0xFF15151D), // Fondo estilo tarjeta
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
             ),
           ),
           child: _isLoading 
@@ -215,7 +215,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: const Icon(
               Icons.menu_book,
@@ -245,7 +245,6 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: () {
-              // TODO: Abrir el modal o pantalla de nueva consulta (Imagen 2)
               _showNewConsultationMenu();
             },
             style: ElevatedButton.styleFrom(
@@ -312,11 +311,11 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
           }
 
           return Card(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             margin: const EdgeInsets.only(bottom: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.white.withOpacity(0.05)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: ExpansionTile(
               iconColor: accentCyan,
@@ -335,11 +334,11 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today, size: 12, color: secondaryTextColor.withOpacity(0.7)),
+                    Icon(Icons.calendar_today, size: 12, color: secondaryTextColor.withValues(alpha: 0.7)),
                     const SizedBox(width: 4),
                     Text(
                       fecha,
-                      style: TextStyle(color: secondaryTextColor.withOpacity(0.7), fontSize: 12),
+                      style: TextStyle(color: secondaryTextColor.withValues(alpha: 0.7), fontSize: 12),
                     ),
                     const Spacer(),
                     Text(
@@ -353,7 +352,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: accentPurple.withOpacity(0.1),
+                    color: accentPurple.withValues(alpha: 0.1),
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(12),
                       bottomRight: Radius.circular(12),
@@ -395,7 +394,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                               },
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: accentCyan,
-                                side: BorderSide(color: accentCyan.withOpacity(0.3)),
+                                side: BorderSide(color: accentCyan.withValues(alpha: 0.3)),
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -411,9 +410,9 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                           const SizedBox(width: 12),
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.05),
+                              color: Colors.red.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.red.withOpacity(0.2)),
+                              border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
                             ),
                             child: IconButton(
                               onPressed: () => _confirmDelete(context, item),
@@ -469,7 +468,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: accentCyan.withOpacity(0.1),
+                    color: accentCyan.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.auto_awesome, color: accentCyan),
@@ -486,7 +485,7 @@ class _OracleConsultationsScreenState extends State<OracleConsultationsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: accentPurple.withOpacity(0.1),
+                    color: accentPurple.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.favorite, color: accentPurple),
