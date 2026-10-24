@@ -50,6 +50,9 @@ dependencies:
   flutter_typeahead: ^5.0.2
   flutter_secure_storage: ^11.2.0
   webview_flutter: 4.13.1
+  # Directo solo para los ajustes de Android del mapa (archivos, contenido
+  # mixto); es la versión que ya traía webview_flutter.
+  webview_flutter_android: 4.11.0
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +64,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  # El WebView falso de los tests; misma versión que trae webview_flutter.
+  webview_flutter_platform_interface: 2.15.1
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.7
 

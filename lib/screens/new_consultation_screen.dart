@@ -152,10 +152,11 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
     if (_selectedType == 'Astral') nivelContexto = 'intermedio';
     if (_selectedType == 'Divino') nivelContexto = 'premium';
 
-    // Obtener contexto astronómico completo
+    // El cielo de ahora, con las claves que acepta el servidor y sin
+    // coordenadas.
     Map<String, dynamic>? contextoCompleto;
     try {
-      contextoCompleto = await _skyService.getAstralProfile();
+      contextoCompleto = await _skyService.getOracleContext();
     } catch (e) {
       debugPrint("No se pudo obtener contexto completo: $e");
     }

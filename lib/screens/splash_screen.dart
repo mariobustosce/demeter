@@ -33,13 +33,14 @@ class _SplashScreenState extends State<SplashScreen> {
     Navigator.pushReplacementNamed(context, hasSession ? '/home' : kGuestRoute);
   }
 
-  /// `true` si hay un token válido. Cualquier falla (red, token expirado)
-  /// cuenta como sesión ausente y manda al login.
+  /// `true` si hay sesión. Si `/me` falla sin red el token sigue guardado y se
+  /// entra igual; si el servidor lo rechazó (401), el ApiClient ya lo borró.
   Future<bool> _resolveSession() async {
     try {
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) return false;
-      return await _authService.getMe() != null;
+      if (await _authService.getMe() != null) return true;
+      return await _authService.getToken() != null;
     } catch (_) {
       return false;
     }

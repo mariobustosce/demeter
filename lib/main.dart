@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'screens/guest_map_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/splash_screen.dart';
@@ -14,6 +15,7 @@ import 'config/app_config.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'services/token_store.dart';
+import 'widgets/map_web_view.dart';
 import 'firebase_options.dart';
 
 final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
@@ -94,6 +96,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
+      navigatorObservers: [mapRouteObserver],
       debugShowCheckedModeBanner:
           false, // Quitar etiqueta 'Debug' para más limpieza
       title: 'WindowsDemeter',
@@ -108,7 +111,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(), // Esta verifica si hay token
         '/login': (context) => LoginScreen(),
-        kGuestRoute: (context) => LoginScreen(), // Fase 2: GuestMapScreen
+        kGuestRoute: (context) => const GuestMapScreen(),
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreenV2(),
         '/store': (context) => const StoreScreen(),

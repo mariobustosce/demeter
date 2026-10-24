@@ -19,6 +19,16 @@ const String kApiBase = String.fromEnvironment(
   defaultValue: 'https://windowsdemeter.com/api',
 );
 
+/// Raíz de las páginas web (el mapa del WebView): la base del API sin `/api`.
+final String kWebBase = kApiBase.replaceFirst(RegExp(r'/api/?$'), '');
+
+/// Rango de `?ratio=` (alto ÷ ancho del mapa) que acepta el servidor.
+const double kMapRatioMin = 1.5;
+const double kMapRatioMax = 2.4;
+
+/// Cuándo sube la hoja que invita al invitado a entrar o crear la cuenta.
+const Duration kGuestInviteDelay = Duration(seconds: 8);
+
 /// Timeout por defecto de cualquier llamada al API.
 const Duration kRequestTimeout = Duration(seconds: 20);
 
@@ -38,8 +48,8 @@ const Duration kAuthTimeout = Duration(seconds: 15);
 /// defecto. Sin esto un GPS frío en interior puede colgar la carga inicial.
 const Duration kLocationTimeout = Duration(seconds: 12);
 
-/// Ruta de quien no tiene sesión: el splash y los 401 llevan aquí. Hoy abre el
-/// login; en la fase 2 pasa a ser el mapa de invitado.
+/// Ruta de quien no tiene sesión (el mapa de invitado): el splash, el logout y
+/// los 401 llevan aquí.
 const String kGuestRoute = '/invitado';
 
 /// User-Agent para Nominatim: su política pide identificar la app y un

@@ -47,7 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+      // Sin volver atrás al mapa de invitado ni al login.
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } on TwoFactorRequired catch (challenge) {
       if (!mounted) return;
       Navigator.push(
@@ -80,7 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/home');
+      // Sin volver atrás al mapa de invitado ni al login.
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } catch (error) {
       if (!mounted) return;
 
@@ -329,6 +331,18 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          // Desde el mapa de invitado: volver a él.
+          if (Navigator.canPop(context))
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  tooltip: 'Volver al mapa',
+                  icon: const Icon(Icons.arrow_back_rounded, color: secondaryTextColor),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+              ),
+            ),
         ],
       ),
     );

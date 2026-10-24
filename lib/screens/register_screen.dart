@@ -92,7 +92,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+      // Sin volver atrás al mapa de invitado ni al login.
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } catch (error) {
       if (!mounted) return;
 

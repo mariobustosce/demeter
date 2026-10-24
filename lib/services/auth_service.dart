@@ -9,6 +9,7 @@ import '../models/user.dart';
 import 'api_client.dart';
 import 'coin_balance.dart';
 import 'device_name.dart';
+import 'map_view_service.dart';
 import 'token_store.dart';
 
 class AuthService {
@@ -180,11 +181,12 @@ class AuthService {
   /// tokens viejos.
   Future<void> clearLocalSession() async {
     await _quietly(_tokens.clear);
+    MapViewService.instance.clear();
     coinBalance.value = null;
     await _quietly(() => fba.FirebaseAuth.instance.signOut());
     await _quietly(() => GoogleSignIn().signOut());
     await _quietly(_clearWebView);
-    // Todo lo que hay en prefs es del usuario: coordenadas y el último cielo.
+    // Todo lo que hay en prefs es del usuario: coordenadas, modo del mapa…
     await _quietly(() async => (await SharedPreferences.getInstance()).clear());
   }
 
