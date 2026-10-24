@@ -56,11 +56,3 @@ flutter_*.png
 # Variables de entorno
 .env
 .env.*
-
-# Basura generada dentro de packages/
-packages/**/.gradle/
-packages/**/build/
-packages/**/local.properties
-packages/**/pubspec.lock
-packages/**/GeneratedPluginRegistrant.java
-packages/**/example/ios/

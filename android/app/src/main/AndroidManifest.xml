@@ -1,10 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Avisos push. En Android 13+ se pide al activar la primera alerta. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- El fondo animado es opcional: sin esto Play no oculta la app a los
+         teléfonos que no lo admiten. La app lo consulta antes de ofrecerlo. -->
+    <uses-feature
+        android:name="android.software.live_wallpaper"
+        android:required="false" />
 
     <!-- Sin backup: las prefs llevan coordenadas y el almacén seguro el token.
          allowBackup apaga la nube (y en Android 11 o menos, todo); las reglas
@@ -70,11 +74,14 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- El fondo animado, en su propio proceso: pauseTimers() pausa todos
+             los WebView del proceso, y en el de la app pausaría el mapa. -->
         <service
             android:name=".CelestialWallpaperService"
             android:enabled="true"
             android:exported="true"
             android:label="WindowsDemeter"
+            android:process=":fondo"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />

@@ -4,10 +4,11 @@ import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.FlutterEngineCache
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
@@ -18,29 +19,44 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    // Reenviamos al engine del fondo animado. Antes esto solo
-                    // respondía success y los datos nunca llegaban al fondo.
-                    "updateData" -> {
-                        result.success(forwardToWallpaperEngine(call.method, call.arguments))
-                    }
-                    "openLiveWallpaperPicker" -> result.success(openLiveWallpaperPicker())
-                    "isLiveWallpaperActive" -> result.success(isLiveWallpaperActive())
+                    "isSupported" -> result.success(
+                        packageManager.hasSystemFeature(PackageManager.FEATURE_LIVE_WALLPAPER)
+                    )
+                    "isActive" -> result.success(isLiveWallpaperActive())
+                    "current" -> result.success(
+                        FondoConfig.leer(this)?.let { mapOf("favorito" to it.favorito, "modo" to it.modo) }
+                    )
+                    "configure" -> configure(call, result)
+                    "openPicker" -> result.success(openLiveWallpaperPicker())
                     else -> result.notImplemented()
                 }
             }
     }
 
-    /// Entrega un mensaje al engine cacheado del fondo animado, si existe.
-    /// Devuelve false cuando el fondo no está corriendo (nadie escucha).
-    private fun forwardToWallpaperEngine(method: String, arguments: Any?): Boolean {
-        val engine = FlutterEngineCache.getInstance().get(WALLPAPER_ENGINE_ID) ?: return false
-        return try {
-            MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
-                .invokeMethod(method, arguments)
-            true
+    /// Guarda lo que debe mostrar el fondo. El servicio lo lee al hacerse visible.
+    private fun configure(call: MethodCall, result: MethodChannel.Result) {
+        val url = call.argument<String>("url")
+        val favorito = call.argument<Int>("favorito")
+        val modo = call.argument<String>("modo")
+        if (url == null || favorito == null || modo == null || !FondoConfig.esUrlDelFondo(url)) {
+            // Sin la URL en el mensaje: lleva el token.
+            result.error("argumentos", "Configuración del fondo no válida", null)
+            return
+        }
+        val config = FondoConfig(
+            url = url,
+            favorito = favorito,
+            modo = modo,
+            pintor = call.argument<String>("pintor") ?: FondoConfig.PINTOR_PANTALLA,
+            fps = call.argument<Int>("fps") ?: FondoConfig.FPS_POR_DEFECTO,
+            medir = call.argument<Boolean>("medir") ?: false,
+        )
+        try {
+            FondoConfig.guardar(this, config)
+            result.success(true)
         } catch (e: Exception) {
-            Log.w(TAG, "No se pudo reenviar '$method' al fondo animado: ${e.message}")
-            false
+            Log.w(TAG, "No se guardó el fondo (${e.javaClass.simpleName})")
+            result.error("guardar", "No se pudo guardar el fondo", null)
         }
     }
 
@@ -86,6 +102,5 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val CHANNEL = "windowsdemeter.com/wallpaper"
-        const val WALLPAPER_ENGINE_ID = "celestial_engine"
     }
 }

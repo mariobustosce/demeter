@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Demeter</string>
-    <string name="wallpaper_description">Fondo de pantalla celestial animado de Demeter.</string>
+    <string name="wallpaper_description">El cielo de tu lugar favorito, en vivo: clima, mar, aves y estrellas.</string>
+    <string name="fondo_sin_configurar">Abre WindowsDemeter y elige el lugar de tu fondo animado.</string>
+    <string name="fondo_revocado">Este fondo ya no está disponible. Abre WindowsDemeter y vuelve a elegir el lugar.</string>
 </resources>

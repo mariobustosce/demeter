@@ -8,12 +8,12 @@ import 'screens/guest_map_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/celestial_live_wallpaper.dart';
 import 'screens/home_screen_v2.dart';
 import 'screens/store_screen.dart';
 import 'config/app_config.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/live_wallpaper.dart';
 import 'services/push_service.dart';
 import 'services/token_store.dart';
 import 'widgets/map_web_view.dart';
@@ -39,6 +39,8 @@ void main() async {
   // El push tampoco: el aviso tocado espera en PushService a la pantalla
   // principal. No pide permiso.
   unawaited(PushService.instance.start());
+  // Las prefs del fondo de antes llevaban coordenadas.
+  unawaited(forgetLegacyWallpaper());
 
   _handleGlobalApiErrors();
   runApp(const MyApp());
@@ -77,20 +79,11 @@ Future<void> _initializeAds() async {
   }
 }
 
-/// En release `debugPrint` no imprime nada. Se aplica en cada entry point
-/// porque cada isolate tiene su propia copia de la variable.
+/// En release `debugPrint` no imprime nada.
 void _silenceDebugPrintInRelease() {
   if (kReleaseMode) {
     debugPrint = (String? message, {int? wrapWidth}) {};
   }
-}
-
-/// Solo Android: lo arranca `CelestialWallpaperService`. En iOS nadie lo llama.
-@pragma('vm:entry-point')
-void wallpaperMain() {
-  WidgetsFlutterBinding.ensureInitialized();
-  _silenceDebugPrintInRelease();
-  runApp(const CelestialLiveWallpaperApp());
 }
 
 class MyApp extends StatelessWidget {

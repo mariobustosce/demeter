@@ -55,27 +55,7 @@ class SkyService {
     };
   }
 
-  // --- MÉTODOS DE COMPATIBILIDAD (No borrar, se usan en Background y Consultas) ---
-
-  Future<String?> getMapSvgMobile({
-    double? lat,
-    double? lng,
-    DateTime? date,
-  }) async {
-    try {
-      final data = await _api.get(
-        '/astronomy/map-svg-mobile',
-        query: await _mapQuery(lat, lng, date),
-        timeout: kApiTimeout,
-      );
-      // Viene como {"svg": "..."} o como el SVG en texto plano.
-      if (data is Map<String, dynamic>) return data['svg'] as String?;
-      return data is String ? data : null;
-    } catch (e) {
-      debugPrint("Error cargando el SVG del cielo: $e");
-      return null;
-    }
-  }
+  // --- MÉTODOS DE COMPATIBILIDAD (No borrar, se usan en Consultas) ---
 
   Future<Map<String, dynamic>?> getCelestialMap({
     double? lat,
