@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../models/carta.dart';
 import '../services/astral_chart_service.dart';
+import '../widgets/firmamento/tablas.dart';
 import 'create_astral_chart_screen.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
@@ -9,16 +11,21 @@ const cardBackground = Color(0xEF0F172A);
 const textColor = Color(0xFFF7FAFC);
 const secondaryTextColor = Color(0xFF94A3B8);
 
+/// Firmamentos: las cartas astrales del usuario.
 class AstralChartsScreen extends StatefulWidget {
-  const AstralChartsScreen({super.key});
+  const AstralChartsScreen({super.key, this.service});
+
+  /// Para los tests; por defecto, el de [ApiClient.instance].
+  final AstralChartService? service;
 
   @override
   State<AstralChartsScreen> createState() => _AstralChartsScreenState();
 }
 
 class _AstralChartsScreenState extends State<AstralChartsScreen> {
-  final AstralChartService _chartService = AstralChartService();
-  List<dynamic> _charts = [];
+  late final AstralChartService _chartService =
+      widget.service ?? AstralChartService();
+  List<Carta> _charts = [];
   bool _isLoading = true;
 
   @override
@@ -31,30 +38,29 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
     setState(() {
       _isLoading = true;
     });
-    
+
     final charts = await _chartService.getUserCharts();
-    
+
     if (mounted) {
       setState(() {
-        _charts = charts;
+        _charts = [for (final c in charts) ?Carta.fromJson(c)];
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _confirmDelete(BuildContext context, dynamic chart) async {
-    final chartId = chart['id'];
-    final chartTitle = chart['titulo'] ?? chart['title'] ?? 'esta carta astral';
+  Future<void> _openCreate() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateAstralChartScreen(service: widget.service),
+      ),
+    );
+    _loadCharts(); // Refrescar al volver
+  }
 
-    if (chartId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error: No se pudo identificar la carta astral'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
+  Future<void> _confirmDelete(BuildContext context, Carta chart) async {
+    final chartTitle = chart.titulo.isEmpty ? 'este firmamento' : chart.titulo;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -102,23 +108,24 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             ),
             SizedBox(width: 12),
-            Text('Eliminando carta astral...'),
+            Text('Eliminando firmamento...'),
           ],
         ),
         duration: Duration(seconds: 30),
       ),
     );
 
-    final result = await _chartService.deleteChart(chartId);
+    final result = await _chartService.deleteChart(chart.id);
 
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
+    // El mensaje lo redacta el servidor.
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Carta astral eliminada exitosamente'),
+          content: Text(result['message'] ?? 'Firmamento eliminado'),
           backgroundColor: Colors.green,
         ),
       );
@@ -126,7 +133,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Error al eliminar la carta astral'),
+          content: Text(result['message'] ?? 'Error al eliminar el firmamento'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -145,7 +152,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             Text('🌟', style: TextStyle(fontSize: 24)),
             SizedBox(width: 8),
             Text(
-              'Mis Cartas Astrales',
+              'Firmamentos',
               style: TextStyle(
                 color: accentCyan,
                 fontWeight: FontWeight.bold,
@@ -161,7 +168,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Administra y explora tus cartas astrales personalizadas',
+              'Tus cartas astrales: fotos de los astros del cielo en un momento y lugar',
               style: TextStyle(
                 color: textColor,
                 fontSize: 14,
@@ -169,28 +176,25 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             ),
             const SizedBox(height: 30),
             Expanded(
-              child: _isLoading 
+              child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: accentCyan))
-                  : _charts.isEmpty 
-                      ? _buildEmptyState() 
+                  : _charts.isEmpty
+                      ? _buildEmptyState()
                       : _buildChartsList(),
             ),
           ],
         ),
       ),
       floatingActionButton: _charts.isNotEmpty && !_isLoading
-          ? FloatingActionButton(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CreateAstralChartScreen(),
-                  ),
-                );
-                _loadCharts();
-              },
+          ? FloatingActionButton.extended(
+              onPressed: _openCreate,
               backgroundColor: accentCyan,
-              child: const Icon(Icons.add, color: Colors.black),
+              foregroundColor: Colors.black,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Nuevo firmamento',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             )
           : null,
     );
@@ -229,7 +233,8 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'No tienes cartas astrales aún',
+              'Aún no tienes firmamentos',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: accentCyan,
                 fontSize: 20,
@@ -238,7 +243,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Crea tu primera carta astral para descubrir tu\nmapa celestial personal basado en tu fecha,\nhora y lugar de nacimiento.',
+              'Crea tu primer firmamento: la foto de los astros\ndel cielo en el momento y lugar de tu nacimiento.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: secondaryTextColor,
@@ -257,15 +262,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                 ),
               ),
               child: ElevatedButton.icon(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CreateAstralChartScreen(),
-                    ),
-                  );
-                  _loadCharts(); // Refrescar al volver
-                },
+                onPressed: _openCreate,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
@@ -279,7 +276,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
                 ),
                 icon: const Text('🌟', style: TextStyle(fontSize: 18)),
                 label: const Text(
-                  'Crear mi Primera Carta Astral',
+                  'Nuevo firmamento',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -294,48 +291,47 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
     );
   }
 
-  // Helper function to format date from yyyy-mm-dd to dd/mm/yyyy
-  String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '--/--/----';
-    try {
-      final dateOnly = dateStr.split('T')[0].split(' ')[0];
-      final parts = dateOnly.split('-');
-      if (parts.length == 3) {
-        return '${parts[2]}/${parts[1]}/${parts[0]}';
-      }
-    } catch (_) {}
-    return dateStr;
+  // De yyyy-mm-dd a dd/mm/yyyy.
+  String _formatDate(String dateStr) {
+    final parts = dateStr.split('-');
+    if (parts.length == 3) return '${parts[2]}/${parts[1]}/${parts[0]}';
+    return dateStr.isEmpty ? '--/--/----' : dateStr;
   }
 
-  // Helper function to format time removing seconds if present (HH:mm:ss to HH:mm)
-  String _formatTime(String? timeStr) {
-    if (timeStr == null || timeStr.isEmpty) return '--:--';
-    try {
-      final timeOnly = timeStr.contains('T') ? timeStr.split('T').last.split('Z')[0] : timeStr;
-      final parts = timeOnly.split(':');
-      if (parts.length >= 2) {
-        return '${parts[0]}:${parts[1]}';
-      }
-    } catch (_) {}
-    return timeStr;
-  }
+  String _formatCoord(double? coord) => coord?.toStringAsFixed(2) ?? '';
 
-  // Helper function to format coordinates slightly shorter
-  String _formatCoord(dynamic coord) {
-    if (coord == null) return '';
-    if (coord is num) return coord.toStringAsFixed(2);
-    if (coord is String) {
-      final numVal = double.tryParse(coord);
-      if (numVal != null) return numVal.toStringAsFixed(2);
-    }
-    return coord.toString();
+  Widget _chip(IconData icon, String text, {Color iconColor = accentCyan}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: iconColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              style: const TextStyle(color: secondaryTextColor, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildChartsList() {
     return ListView.builder(
+      // Deja libre el botón flotante al final.
+      padding: const EdgeInsets.only(bottom: 88),
       itemCount: _charts.length,
       itemBuilder: (context, index) {
         final chart = _charts[index];
+        final signo = chart.sunSign == null ? null : kSignos[chart.sunSign!];
         return Card(
           color: const Color(0xFF15151D), // Un fondo oscuro elegante para la carta
           margin: const EdgeInsets.only(bottom: 16),
@@ -344,208 +340,78 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // HEADER
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: accentPurple.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _getSignEmoji(chart['sun_sign']),
-                        style: const TextStyle(fontSize: 22, color: accentPurple),
-                      ),
+                // Signo solar, del grado real.
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accentPurple.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    signo == null ? '☉' : glifoTexto(signo.glifo),
+                    style: TextStyle(
+                      fontSize: 22,
+                      color: signo?.color ?? accentPurple,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8.0,
-                            runSpacing: 6.0,
-                            children: [
-                              Text(
-                                chart['titulo'] ?? chart['title'] ?? 'Carta Astral',
-                                style: const TextStyle(
-                                  color: Color.fromARGB(255, 239, 242, 243),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.calendar_today, size: 12, color: Color.fromARGB(255, 228, 234, 243)),
-                                    const SizedBox(width: 4),
-                                    Text('${_formatDate(chart['birth_date'])} ${_formatTime(chart['birth_time'])}', 
-                                      style: const TextStyle(color: Color.fromARGB(255, 200, 216, 238), fontSize: 12)),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.05),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.public, size: 12, color: accentCyan),
-                                    const SizedBox(width: 4),
-                                    Text('${_formatCoord(chart['birth_lat'])}°, ${_formatCoord(chart['birth_lon'])}°',
-                                      style: const TextStyle(color: secondaryTextColor, fontSize: 12)),
-                                  ],
-                                ),
-                              ),
-                            ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        chart.titulo.isEmpty ? 'Firmamento' : chart.titulo,
+                        style: const TextStyle(
+                          color: Color.fromARGB(255, 239, 242, 243),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (signo != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Sol en ${signo.nombre}',
+                          style: TextStyle(
+                            color: signo.color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Signo: ${chart['sun_sign'] ?? 'Aries'}',
-                            style: TextStyle(
-                              color: Colors.red[300],
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8.0,
+                        runSpacing: 6.0,
+                        children: [
+                          _chip(
+                            Icons.calendar_today,
+                            '${_formatDate(chart.birthDate)} '
+                            '${chart.birthTime.isEmpty ? '--:--' : chart.birthTime}',
+                          ),
+                          if (chart.lat != null && chart.lon != null)
+                            _chip(
+                              Icons.public,
+                              '${_formatCoord(chart.lat)}°, ${_formatCoord(chart.lon)}°',
                             ),
-                          ),
+                          if (chart.timezone != null)
+                            _chip(Icons.schedule, chart.timezone!),
+                          if (chart.tzRevisar) const _RevisarZona(),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                const Divider(color: Colors.white10),
-                const SizedBox(height: 12),
-
-                // BODY: Planetas y Rueda
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Planetas Principales',
-                              style: TextStyle(color: accentPurple, fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 16,
-                            runSpacing: 12,
-                            children: _buildMockPlanets(),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text('Puntos Importantes',
-                              style: TextStyle(color: accentPurple, fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: const [
-                              Text('ASC: ', style: TextStyle(color: secondaryTextColor, fontSize: 12)),
-                              Text('330.0°', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                              SizedBox(width: 24),
-                              Text('MC: ', style: TextStyle(color: secondaryTextColor, fontSize: 12)),
-                              Text('60.0°', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Text('Creada: ${chart['created_at'] != null ? chart['created_at'].toString().split('T')[0] : 'Hoy'}',
-                              style: const TextStyle(color: secondaryTextColor, fontSize: 11)),
-                          Text('Zona: ${chart['timezone'] ?? 'UTC'}',
-                              style: const TextStyle(color: secondaryTextColor, fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Center(
-                        child: Container(
-                          width: 110,
-                          height: 110,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
-                            color: Colors.black.withValues(alpha: 0.2),
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Marcas del reloj
-                              ...List.generate(12, (i) {
-                                return Transform.rotate(
-                                  angle: i * 3.14159 / 6,
-                                  child: Align(
-                                    alignment: Alignment.topCenter,
-                                    child: Container(
-                                      width: 1,
-                                      height: 6,
-                                      color: Colors.white24,
-                                    ),
-                                  ),
-                                );
-                              }),
-                              // Iconos simulados por dentro
-                              const Positioned(top: 25, left: 20, child: Text('🌞', style: TextStyle(fontSize: 10))),
-                              const Positioned(bottom: 30, right: 15, child: Text('🌙', style: TextStyle(fontSize: 10))),
-                              const Positioned(top: 40, right: 20, child: Text('ASC', style: TextStyle(color: accentCyan, fontSize: 8, fontWeight: FontWeight.bold))),
-                              const Positioned(bottom: 25, left: 30, child: Text('MC', style: TextStyle(color: accentPurple, fontSize: 8, fontWeight: FontWeight.bold))),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // FOOTER BUTTONS
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          // TODO: Navegar a los detalles
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: accentCyan,
-                          side: BorderSide(color: accentCyan.withValues(alpha: 0.2)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: const Icon(Icons.remove_red_eye, size: 18),
-                        label: const Text('Ver en Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
-                      ),
-                      child: IconButton(
-                        onPressed: () => _confirmDelete(context, chart),
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  tooltip: 'Eliminar',
+                  onPressed: () => _confirmDelete(context, chart),
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                 ),
               ],
             ),
@@ -554,50 +420,27 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
       },
     );
   }
+}
 
-  String _getSignEmoji(String? sign) {
-    if (sign == null) return '♈';
-    final s = sign.toLowerCase();
-    if (s.contains('tauro')) return '♉';
-    if (s.contains('gemini') || s.contains('géminis')) return '♊';
-    if (s.contains('cancer') || s.contains('cáncer')) return '♋';
-    if (s.contains('leo')) return '♌';
-    if (s.contains('virgo')) return '♍';
-    if (s.contains('libra')) return '♎';
-    if (s.contains('escorpio') || s.contains('scorpio')) return '♏';
-    if (s.contains('sagitario') || s.contains('sagittarius')) return '♐';
-    if (s.contains('capricornio') || s.contains('capricorn')) return '♑';
-    if (s.contains('acuario') || s.contains('aquarius')) return '♒';
-    if (s.contains('piscis') || s.contains('pisces')) return '♓';
-    return '♈'; // Aries por defecto
-  }
+/// Distintivo discreto: la carta se guardó con una zona que no es la del
+/// lugar y ese día regía otro desfase.
+class _RevisarZona extends StatelessWidget {
+  const _RevisarZona();
 
-  List<Widget> _buildMockPlanets() {
-    return [
-      _planetItem('🌞', '304.0°', Colors.orange),
-      _planetItem('🌙', '46.0°', Colors.white),
-      _planetItem('♂️', '225.0°', Colors.redAccent),
-      _planetItem('♅', '338.0°', Colors.tealAccent),
-      _planetItem('☿️', '201.0°', Colors.orangeAccent),
-      _planetItem('♃', '329.0°', Colors.blueAccent),
-    ];
-  }
-
-  Widget _planetItem(String emoji, String degree, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(emoji, style: TextStyle(fontSize: 14, color: color)),
-        const SizedBox(width: 6),
-        Text(
-          degree,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+  @override
+  Widget build(BuildContext context) {
+    const ambar = Color(0xFFF59E0B);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: ambar.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: ambar.withValues(alpha: 0.4)),
+      ),
+      child: const Text(
+        '🕐 revisar zona',
+        style: TextStyle(color: ambar, fontSize: 12),
+      ),
     );
   }
 }

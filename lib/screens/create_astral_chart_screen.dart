@@ -1,9 +1,15 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import '../config/app_config.dart';
-import '../services/astral_chart_service.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
+
+import '../config/app_config.dart';
+import '../config/zonas_iana.dart';
+import '../models/carta.dart';
+import '../services/api_client.dart';
+import '../services/astral_chart_service.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -21,7 +27,10 @@ class LocationSuggestion {
 }
 
 class CreateAstralChartScreen extends StatefulWidget {
-  const CreateAstralChartScreen({super.key});
+  const CreateAstralChartScreen({super.key, this.service});
+
+  /// Para los tests; por defecto, el de [ApiClient.instance].
+  final AstralChartService? service;
 
   @override
   State<CreateAstralChartScreen> createState() =>
@@ -36,10 +45,103 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
   final _latController = TextEditingController();
   final _lonController = TextEditingController();
 
-  final AstralChartService _chartService = AstralChartService();
-  String _selectedTimezone = 'UTC';
+  late final AstralChartService _chartService =
+      widget.service ?? AstralChartService();
   bool _useManualLocation = true;
   bool _isLoading = false;
+
+  // Zona del lugar de nacimiento: la sugiere el servidor. Solo si el usuario
+  // la cambia a mano se manda `timezone` en el alta.
+  ZonaLugar? _zonaLugar;
+  String? _zonaManual;
+  bool _zonaCargando = false;
+  bool _zonaFallo = false;
+  Timer? _zonaTimer;
+  int _zonaPedido = 0;
+
+  @override
+  void dispose() {
+    _zonaTimer?.cancel();
+    _titleController.dispose();
+    _dateController.dispose();
+    _timeController.dispose();
+    _searchController.dispose();
+    _latController.dispose();
+    _lonController.dispose();
+    super.dispose();
+  }
+
+  ({double lat, double lon})? get _punto {
+    final lat = double.tryParse(_latController.text.trim());
+    final lon = double.tryParse(_lonController.text.trim());
+    if (lat == null || lon == null) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return (lat: lat, lon: lon);
+  }
+
+  /// Pide la zona del lugar al fijar el lugar o cambiar la fecha o la hora.
+  void _programarZona() {
+    _zonaTimer?.cancel();
+    if (_punto == null) {
+      _zonaPedido++;
+      setState(() {
+        _zonaLugar = null;
+        _zonaCargando = false;
+        _zonaFallo = false;
+      });
+      return;
+    }
+    setState(() => _zonaCargando = true);
+    _zonaTimer = Timer(const Duration(milliseconds: 500), _pedirZona);
+  }
+
+  Future<void> _pedirZona() async {
+    final punto = _punto;
+    if (punto == null) return;
+    final pedido = ++_zonaPedido;
+    try {
+      final zona = await _chartService.zona(
+        lat: punto.lat,
+        lon: punto.lon,
+        fecha: _dateController.text,
+        hora: _timeController.text,
+      );
+      // Una respuesta vieja no pisa a la última.
+      if (!mounted || pedido != _zonaPedido) return;
+      setState(() {
+        _zonaLugar = zona;
+        _zonaCargando = false;
+        _zonaFallo = false;
+      });
+    } catch (e) {
+      if (!mounted || pedido != _zonaPedido) return;
+      // Sin lugar ni coordenadas en el log. No bloquea: el servidor la
+      // resuelve al guardar.
+      debugPrint('Zona del lugar falló (${e.runtimeType}).');
+      setState(() {
+        _zonaLugar = null;
+        _zonaCargando = false;
+        _zonaFallo = true;
+      });
+    }
+  }
+
+  Future<void> _cambiarZona() async {
+    final elegida = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _ZonaPicker(actual: _zonaManual ?? _zonaLugar?.timezone),
+    );
+    if (elegida == null || !mounted) return;
+    setState(() {
+      // Elegir la misma que sugiere el lugar es no haberla cambiado.
+      _zonaManual = elegida == _zonaLugar?.timezone ? null : elegida;
+    });
+  }
 
   Future<List<LocationSuggestion>> _searchLocations(String query) async {
     if (query.length < 3) return []; // Minimum 3 characters to search
@@ -109,24 +211,25 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
       birthTime: _timeController.text, // Asegúrate de que el formato sea HH:mm
       birthLat: lat,
       birthLon: lon,
-      timezone: _selectedTimezone,
+      // Sin cambio manual va sin zona: el servidor usa la del lugar.
+      timezone: _zonaManual,
     );
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
 
     if (response['success']) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✨ Carta astral creada exitosamente'),
+        SnackBar(
+          // El servidor ya lo redacta con la palabra «firmamento».
+          content: Text(apiMessage(response['data']) ?? '✨ Firmamento creado'),
           backgroundColor: Colors.green,
         ),
       );
       Navigator.pop(context); // Volver atrás a la lista
     } else {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(response['message'] ?? 'Error desconocido'),
@@ -160,7 +263,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                 SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    'Generador de Carta Astral',
+                    'Nuevo firmamento',
                     style: TextStyle(
                       color: accentCyan,
                       fontWeight: FontWeight.bold,
@@ -173,7 +276,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Descubre tu mapa celestial personal basado en tu fecha, hora y lugar de nacimiento',
+              'Tu carta astral: la foto de los astros del cielo en el momento y lugar de tu nacimiento',
               style: TextStyle(color: secondaryTextColor, fontSize: 13),
               textAlign: TextAlign.center,
             ),
@@ -199,14 +302,14 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildLabel('✨', 'Título de la Carta Astral'),
+          _buildLabel('✨', 'Título del firmamento'),
           _buildTextField(
             controller: _titleController,
             hintText: 'Ej: Mi Carta Natal, Carta del Alma Gemela, etc.',
           ),
           const SizedBox(height: 16),
           const Text(
-            'Dale un nombre personal a tu carta astral',
+            'Dale un nombre personal a tu firmamento',
             style: TextStyle(color: secondaryTextColor, fontSize: 12),
           ),
           const SizedBox(height: 24),
@@ -250,6 +353,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                           final month = date.month.toString().padLeft(2, '0');
                           final day = date.day.toString().padLeft(2, '0');
                           _dateController.text = "${date.year}-$month-$day";
+                          _programarZona();
                         }
                       },
                     ),
@@ -291,6 +395,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                           final hour = time.hour.toString().padLeft(2, '0');
                           final minute = time.minute.toString().padLeft(2, '0');
                           _timeController.text = "$hour:$minute";
+                          _programarZona();
                         }
                       },
                     ),
@@ -409,6 +514,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                   _searchController.text = suggestion.display;
                   _latController.text = suggestion.lat.toStringAsFixed(4);
                   _lonController.text = suggestion.lon.toStringAsFixed(4);
+                  _programarZona();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Coordenadas: ${suggestion.lat}, ${suggestion.lon}'),
@@ -442,6 +548,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       _buildTextField(
                         controller: _latController,
                         hintText: '-33.4489',
+                        onChanged: (_) => _programarZona(),
                       ),
                     ],
                   ),
@@ -455,6 +562,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       _buildTextField(
                         controller: _lonController,
                         hintText: '-70.6693',
+                        onChanged: (_) => _programarZona(),
                       ),
                     ],
                   ),
@@ -517,36 +625,9 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
           
           const SizedBox(height: 24),
 
-          // Timezone
-          _buildLabel('🕒', 'Zona Horaria'),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.black26,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedTimezone,
-                isExpanded: true,
-                dropdownColor: cardBackground,
-                style: const TextStyle(color: textColor, fontSize: 14),
-                icon: const Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
-                items: ['UTC', 'UTC-4 (Chile)', 'UTC-3 (Argentina)']
-                    .map((e) => DropdownMenuItem(
-                          value: e.split(' ')[0], // Solo el valor para la prueba 'UTC',...
-                          child: Text(e),
-                        ))
-                    .toList(),
-                onChanged: (val) {
-                  setState(() {
-                    if (val != null) _selectedTimezone = val;
-                  });
-                },
-              ),
-            ),
-          ),
+          // Zona horaria: la del lugar, nunca la del teléfono ni «UTC».
+          _buildLabel('🕒', 'Zona horaria'),
+          _buildZona(),
           const SizedBox(height: 32),
 
           // Generate Button
@@ -575,7 +656,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                       ),
                       icon: const Text('✨', style: TextStyle(fontSize: 18)),
                       label: const Text(
-                        'Generar Carta Astral',
+                        'Crear firmamento',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -624,6 +705,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
     VoidCallback? onSuffixTap,
     TextInputAction? textInputAction,
     ValueChanged<String>? onSubmitted,
+    ValueChanged<String>? onChanged,
     bool isLoading = false,
     Color backgroundColor = const Color(0xFF0F172A),
   }) {
@@ -637,6 +719,7 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
         controller: controller,
         readOnly: readOnly,
         onTap: onTap,
+        onChanged: onChanged,
         textInputAction: textInputAction,
         onSubmitted: onSubmitted,
         style: const TextStyle(color: textColor, fontSize: 14),
@@ -665,6 +748,178 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
                         )
                       : Icon(suffixIcon, color: secondaryTextColor, size: 20)
                   : null,
+        ),
+      ),
+    );
+  }
+
+  /// La zona del lugar bajo el formulario, con «Cambiar zona» discreto.
+  Widget _buildZona() {
+    const estilo = TextStyle(color: textColor, fontSize: 13, height: 1.35);
+    const tenue = TextStyle(color: secondaryTextColor, fontSize: 12, height: 1.35);
+
+    final Widget linea;
+    if (_zonaManual != null) {
+      linea = Text('$_zonaManual · elegida a mano', style: estilo);
+    } else if (_zonaCargando) {
+      linea = const Row(
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: accentCyan),
+          ),
+          SizedBox(width: 8),
+          Flexible(child: Text('Buscando la zona del lugar…', style: tenue)),
+        ],
+      );
+    } else if (_zonaLugar != null) {
+      final z = _zonaLugar!;
+      final cuando = _dateController.text.isEmpty ? 'hoy rige' : 'ese día regía';
+      linea = Text(
+        '${z.timezone} · $cuando ${z.rotulo}'
+        '${z.horarioVerano ? ' · horario de verano' : ''}',
+        style: estilo,
+      );
+    } else if (_zonaFallo) {
+      linea = const Text(
+        'No se pudo consultar la zona. Se usará la del lugar al guardar.',
+        style: tenue,
+      );
+    } else {
+      linea = const Text(
+        'Se usará la zona del lugar de nacimiento.',
+        style: tenue,
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          KeyedSubtree(key: const Key('zona-linea'), child: linea),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              children: [
+                if (_zonaManual != null)
+                  TextButton(
+                    onPressed: () => setState(() => _zonaManual = null),
+                    style: TextButton.styleFrom(foregroundColor: secondaryTextColor),
+                    child: const Text('Usar la del lugar', style: TextStyle(fontSize: 12)),
+                  ),
+                TextButton(
+                  onPressed: _cambiarZona,
+                  style: TextButton.styleFrom(foregroundColor: accentCyan),
+                  child: const Text('Cambiar zona', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hoja para elegir otra zona IANA: el caso raro de una hora anotada en otra
+/// zona. Devuelve el nombre elegido.
+class _ZonaPicker extends StatefulWidget {
+  const _ZonaPicker({this.actual});
+
+  final String? actual;
+
+  @override
+  State<_ZonaPicker> createState() => _ZonaPickerState();
+}
+
+class _ZonaPickerState extends State<_ZonaPicker> {
+  String _filtro = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final f = _filtro.toLowerCase().replaceAll(' ', '_');
+    final zonas = [
+      for (final z in kZonasIana)
+        if (f.isEmpty || z.toLowerCase().contains(f)) z,
+    ];
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.7,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
+                child: Text(
+                  'Cambiar zona',
+                  style: TextStyle(color: accentCyan, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Solo si la hora se anotó en otra zona que la del lugar de nacimiento.',
+                  style: TextStyle(color: secondaryTextColor, fontSize: 12, height: 1.35),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: TextField(
+                    autofocus: false,
+                    onChanged: (v) => setState(() => _filtro = v.trim()),
+                    style: const TextStyle(color: textColor, fontSize: 14),
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar, p. ej. Madrid',
+                      hintStyle: TextStyle(color: secondaryTextColor, fontSize: 14),
+                      border: InputBorder.none,
+                      prefixIcon: Icon(Icons.search, color: secondaryTextColor, size: 20),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: zonas.length,
+                  itemBuilder: (context, i) {
+                    final z = zonas[i];
+                    final actual = z == widget.actual;
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        z,
+                        style: TextStyle(
+                          color: actual ? accentCyan : textColor,
+                          fontSize: 14,
+                          fontWeight: actual ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: actual
+                          ? const Icon(Icons.check, color: accentCyan, size: 18)
+                          : null,
+                      onTap: () => Navigator.pop(context, z),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
