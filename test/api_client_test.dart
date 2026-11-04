@@ -222,4 +222,43 @@ void main() {
     expect(await empty.delete('/x'), isNull);
     expect(await text.get('/x'), '<svg/>');
   });
+
+  group('descargas', () {
+    test('devuelve los bytes y el nombre saneado de Content-Disposition', () async {
+      late http.Request seen;
+      final api = clientWith((req) async {
+        seen = req;
+        return http.Response.bytes(utf8.encode('a,b\n1,2\n'), 200, headers: {
+          'content-type': 'text/csv; charset=UTF-8',
+          'content-disposition': 'attachment; filename=windowsdemeter-estudio-7-2026-11-04.csv',
+        });
+      });
+
+      final d = await api.download('/estudios/7/exportar/csv');
+
+      expect(seen.method, 'POST');
+      expect(seen.headers['Authorization'], 'Bearer tok-1');
+      expect(utf8.decode(d.bytes), 'a,b\n1,2\n');
+      expect(d.nombre, 'windowsdemeter-estudio-7-2026-11-04.csv');
+      expect(d.tipo, startsWith('text/csv'));
+    });
+
+    test('un 422 lanza el mensaje del servidor', () async {
+      final api = clientWith((_) async =>
+          jsonResponse({'success': false, 'message': 'Te falta Polvo Estelar.'}, 422));
+
+      expect(
+        () => api.download('/estudios/7/exportar/json'),
+        throwsA(isA<ValidationException>().having((e) => e.message, 'message', 'Te falta Polvo Estelar.')),
+      );
+    });
+
+    test('el nombre no puede salirse de la carpeta', () {
+      expect(nombreDeDescarga('attachment; filename="estudio 7.csv"'), 'estudio_7.csv');
+      expect(nombreDeDescarga("attachment; filename*=UTF-8''..%2F..%2Fmal.json"), 'mal.json');
+      expect(nombreDeDescarga('attachment; filename=../.oculto'), isNull);
+      expect(nombreDeDescarga(null), isNull);
+      expect(nombreDeDescarga('inline'), isNull);
+    });
+  });
 }

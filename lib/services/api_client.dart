@@ -82,9 +82,43 @@ class ApiClient {
   }) =>
       _send('DELETE', path, body: body, timeout: timeout);
 
+  /// Un archivo que el servidor manda como descarga (`Content-Disposition:
+  /// attachment`). Los errores son los mismos que en el resto de llamadas.
+  Future<Descarga> download(
+    String path, {
+    String method = 'POST',
+    Object? body,
+    Duration timeout = kRequestTimeout,
+  }) async {
+    final r = await _sendRaw(method, path, body: body, timeout: timeout);
+    final status = r.response.statusCode;
+    if (status < 200 || status >= 300) {
+      // Lanza la excepción que corresponda (422, 401, 429…).
+      await _handle(method, r.uri, r.response, r.token);
+    }
+    return Descarga(
+      bytes: r.response.bodyBytes,
+      nombre: nombreDeDescarga(r.response.headers['content-disposition']),
+      tipo: r.response.headers['content-type'],
+    );
+  }
+
   /// Devuelve el body decodificado (JSON, texto o `null` si viene vacío) o
   /// lanza una [ApiException].
   Future<dynamic> _send(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Object? body,
+    bool auth = true,
+    required Duration timeout,
+  }) async {
+    final r = await _sendRaw(method, path, query: query, body: body, auth: auth, timeout: timeout);
+    return _handle(method, r.uri, r.response, r.token);
+  }
+
+  /// Envía con los reintentos ante 429 y devuelve la respuesta sin procesar.
+  Future<({http.Response response, Uri uri, String? token})> _sendRaw(
     String method,
     String path, {
     Map<String, String>? query,
@@ -116,7 +150,7 @@ class ApiClient {
         }
       }
 
-      return _handle(method, uri, response, token);
+      return (response: response, uri: uri, token: token);
     }
   }
 
@@ -270,6 +304,30 @@ Map<String, dynamic> jsonMap(dynamic data) {
 
 /// Error del API con un mensaje listo para mostrar. `toString()` da solo ese
 /// mensaje: nunca el body, las cabeceras ni la URL.
+/// Un archivo descargado del servidor.
+class Descarga {
+  const Descarga({required this.bytes, this.nombre, this.tipo});
+
+  final Uint8List bytes;
+
+  /// El de `Content-Disposition`, ya saneado; `null` si no vino.
+  final String? nombre;
+  final String? tipo;
+}
+
+/// El nombre de archivo de un `Content-Disposition`, solo con letras,
+/// números, punto, guion y guion bajo (no puede salirse de la carpeta).
+String? nombreDeDescarga(String? disposicion) {
+  if (disposicion == null) return null;
+  final m = RegExp(r"filename\*=(?:UTF-8'')?([^;]+)", caseSensitive: false).firstMatch(disposicion) ??
+      RegExp(r'filename="?([^";]+)"?', caseSensitive: false).firstMatch(disposicion);
+  if (m == null) return null;
+  final crudo = Uri.decodeComponent(m.group(1)!.trim().replaceAll('"', ''));
+  final limpio = crudo.split(RegExp(r'[\\/]')).last.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  if (limpio.isEmpty || limpio.startsWith('.')) return null;
+  return limpio;
+}
+
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
 

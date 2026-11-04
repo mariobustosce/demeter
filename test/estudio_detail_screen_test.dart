@@ -4,6 +4,7 @@ import 'package:demeter/models/estudio_detalle.dart';
 import 'package:demeter/models/observatorio.dart';
 import 'package:demeter/screens/estudio_detail_screen.dart';
 import 'package:demeter/services/api_client.dart';
+import 'package:demeter/services/coin_balance.dart';
 import 'package:demeter/services/observatorio_service.dart';
 import 'package:demeter/widgets/observatorio/rango_diario.dart';
 import 'package:flutter/material.dart';
@@ -88,12 +89,17 @@ void main() {
   late List<http.Request> pedidos;
   late bool conNormal;
   late bool activo;
+  late int estadoExportar;
+  late List<(int, String)> compartidos;
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({'sanctum_token': 'tok-1'});
+    coinBalance.value = 500;
     pedidos = [];
     conNormal = true;
     activo = true;
+    estadoExportar = 200;
+    compartidos = [];
   });
 
   ObservatorioService service() => ObservatorioService(
@@ -103,6 +109,22 @@ void main() {
             pedidos.add(req);
             final p = req.url.path;
             Object body;
+            if (p.contains('/exportar/')) {
+              if (estadoExportar != 200) {
+                return http.Response(
+                  jsonEncode({'success': false, 'message': 'Te falta Polvo Estelar: la descarga cuesta 25 ✨ y tienes 3.'}),
+                  estadoExportar,
+                  headers: _json,
+                );
+              }
+              return http.Response('fecha,turno\n2026-11-03,tarde\n', 200, headers: {
+                'content-type': 'text/csv; charset=UTF-8',
+                'content-disposition': 'attachment; filename=windowsdemeter-estudio-7-2026-11-04.csv',
+              });
+            }
+            if (p == '/api/me') {
+              return http.Response(jsonEncode({'id': 1, 'celestial_coins': 475}), 200, headers: _json);
+            }
             if (p.endsWith('/resumen')) {
               body = _resumen(conNormal: conNormal);
             } else if (p.endsWith('/capturas')) {
@@ -147,7 +169,9 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: EstudioDetailScreen(
         estudio: const Estudio(id: 7, titulo: 'Cerro'),
+        precioDescarga: 25,
         service: service(),
+        compartir: (d, nombre) async => compartidos.add((d.bytes.length, nombre)),
       ),
     ));
     await frames(tester);
@@ -231,6 +255,65 @@ void main() {
     expect(find.textContaining('℞'), findsWidgets);
     // Plutón falta en las capturas viejas: «—».
     expect(find.text('—'), findsWidgets);
+  });
+
+  group('exportación', () {
+    Future<void> descargar(WidgetTester tester, String boton) async {
+      await tester.tap(find.text(boton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Descargar'));
+      await frames(tester);
+    }
+
+    testWidgets('confirma con el precio, baja el archivo y ofrece compartirlo', (tester) async {
+      await abrir(tester);
+
+      await tester.tap(find.text('Descargar CSV · 25 ✨'));
+      await tester.pumpAndSettle();
+      expect(find.text('La descarga CSV cuesta 25 ✨. ¿Descargar?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Descargar'));
+      await frames(tester);
+
+      final pago = pedidos.where((r) => r.method == 'POST').single;
+      expect(pago.url.path, '/api/estudios/7/exportar/csv');
+      expect(compartidos, [(29, 'windowsdemeter-estudio-7-2026-11-04.csv')]);
+      // El saldo nuevo lo da el servidor, no una resta local.
+      expect(coinBalance.value, 475);
+    });
+
+    testWidgets('cada descarga vuelve a pedirse al servidor', (tester) async {
+      await abrir(tester);
+
+      await descargar(tester, 'Descargar JSON · 25 ✨');
+      await descargar(tester, 'Descargar JSON · 25 ✨');
+
+      final pagos = pedidos.where((r) => r.method == 'POST').map((r) => r.url.path).toList();
+      expect(pagos, ['/api/estudios/7/exportar/json', '/api/estudios/7/exportar/json']);
+      expect(compartidos, hasLength(2));
+    });
+
+    testWidgets('un 422 es «te falta polvo»: el mensaje y nada más', (tester) async {
+      estadoExportar = 422;
+      await abrir(tester);
+
+      await descargar(tester, 'Descargar CSV · 25 ✨');
+
+      expect(find.text('Te falta Polvo Estelar: la descarga cuesta 25 ✨ y tienes 3.'), findsOneWidget);
+      expect(compartidos, isEmpty);
+      expect(coinBalance.value, 500);
+      expect(pedidos.any((r) => r.url.path == '/api/me'), isFalse);
+    });
+
+    testWidgets('cancelar no descarga', (tester) async {
+      await abrir(tester);
+
+      await tester.tap(find.text('Descargar CSV · 25 ✨'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(pedidos.where((r) => r.method == 'POST'), isEmpty);
+    });
   });
 
   group('rango diario', () {

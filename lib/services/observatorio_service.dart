@@ -43,6 +43,23 @@ class ObservatorioService {
         'por_pagina': '${porPagina.clamp(1, 200)}',
       })));
 
+  /// `csv` o `json`. Cobra por descarga: no se guarda para repetirla gratis.
+  /// Un 422 es «te falta polvo» y no descuenta nada.
+  Future<Descarga> exportar(int id, String formato) async {
+    if (formato != 'csv' && formato != 'json') {
+      throw const ApiException('Formato no válido.');
+    }
+    final d = await _api.download('/estudios/$id/exportar/$formato', timeout: const Duration(seconds: 60));
+    // La respuesta es el archivo: el saldo nuevo se pide aparte.
+    try {
+      final me = jsonMap(await _api.get('/me'));
+      updateCoinBalance(me['celestial_coins']);
+    } on ApiException {
+      // El archivo ya llegó; el saldo se pone al día en la próxima carga.
+    }
+    return d;
+  }
+
   Future<Estudio> _estudioDe(Future<dynamic> peticion) async {
     final body = jsonMap(await peticion);
     updateCoinBalance(body['saldo']);

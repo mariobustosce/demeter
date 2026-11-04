@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/estudio_detalle.dart';
 import '../models/observatorio.dart';
 import '../services/api_client.dart';
+import '../services/compartir_archivo.dart';
 import '../services/observatorio_service.dart';
 import '../widgets/firmamento/tablas.dart';
 import '../widgets/observatorio/rango_diario.dart';
@@ -32,12 +33,23 @@ const List<(String, String)> _astros = [
 /// Detalle de un Estudio del cielo: cabecera, resumen de 14 días, capturas
 /// y astros por captura. Uno en pausa o huérfano se lee igual.
 class EstudioDetailScreen extends StatefulWidget {
-  const EstudioDetailScreen({super.key, required this.estudio, this.precioDescarga = 0, this.service});
+  const EstudioDetailScreen({
+    super.key,
+    required this.estudio,
+    this.precioDescarga = 0,
+    this.service,
+    this.compartir = compartirArchivo,
+  });
 
   /// El de la tarjeta: se muestra mientras carga la cabecera completa.
   final Estudio estudio;
+
+  /// De `precios.descarga`; en 0 los botones van sin precio.
   final int precioDescarga;
   final ObservatorioService? service;
+
+  /// Entrega el archivo descargado (por defecto, la hoja de compartir).
+  final CompartirArchivo compartir;
 
   @override
   State<EstudioDetailScreen> createState() => _EstudioDetailScreenState();
@@ -52,6 +64,92 @@ class _EstudioDetailScreenState extends State<EstudioDetailScreen> {
   PaginaCapturas? _pagina;
   String? _error;
   bool _cargandoMas = false;
+
+  /// `csv` o `json` mientras se descarga (el servidor admite 6 por minuto).
+  String? _descargando;
+
+  Future<void> _exportar(String formato) async {
+    final etiqueta = formato.toUpperCase();
+    final precio = widget.precioDescarga;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xEF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Descargar $etiqueta', style: const TextStyle(color: kTexto)),
+        content: Text(
+          precio > 0
+              ? 'La descarga $etiqueta cuesta $precio ✨. ¿Descargar?'
+              : 'Se descarga un archivo $etiqueta con todas las capturas. ¿Descargar?',
+          style: const TextStyle(color: kTextoTenue, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar', style: TextStyle(color: kTextoTenue)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Descargar', style: TextStyle(color: kCian)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _descargando = formato);
+    try {
+      final d = await _service.exportar(widget.estudio.id, formato);
+      final nombre = d.nombre ?? 'windowsdemeter-estudio-${widget.estudio.id}.$formato';
+      await widget.compartir(d, nombre);
+    } on ApiException catch (e) {
+      // 422: te falta polvo. No se descuenta nada aquí: el saldo es el del servidor.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message), backgroundColor: Colors.redAccent),
+        );
+      }
+    } on Exception catch (e) {
+      // Falló guardar o compartir: el tipo de error, sin rutas.
+      debugPrint('Compartir la descarga falló (${e.runtimeType}).');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo guardar el archivo.'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _descargando = null);
+    }
+  }
+
+  Widget _archivo() {
+    final precio = widget.precioDescarga;
+    Widget boton(String formato, String texto) => OutlinedButton.icon(
+          onPressed: _descargando == null ? () => _exportar(formato) : null,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: kCian,
+            side: BorderSide(color: kCian.withValues(alpha: 0.3)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: _descargando == formato
+              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kCian))
+              : const Icon(Icons.download, size: 18),
+          label: Text(precio > 0 ? '$texto · $precio ✨' : texto, style: const TextStyle(fontWeight: FontWeight.bold)),
+        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _Tenue('Todas las capturas en un archivo, para estudiarlas fuera. Cada descarga se cobra aparte.'),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [boton('csv', 'Descargar CSV'), boton('json', 'Descargar JSON')],
+        ),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -120,6 +218,7 @@ class _EstudioDetailScreenState extends State<EstudioDetailScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 children: [
                   _cabecera(),
+                  _Seccion(titulo: 'Archivo del estudio', child: _archivo()),
                   _Seccion(titulo: 'Últimos ${_resumen!.diasVentana} días', child: _resumenDe(_resumen!)),
                   _Seccion(
                     titulo: 'Capturas',
