@@ -1,0 +1,1060 @@
+{
+    "firmamento": {
+        "motor": 2,
+        "zona": {
+            "timezone": "UTC",
+            "desfase": 0,
+            "rotulo": "UTC+00:00",
+            "horario_verano": false,
+            "revisar": true,
+            "sugerida": {
+                "timezone": "America\/Santiago",
+                "desfase": -14400,
+                "rotulo": "UTC−04:00"
+            }
+        },
+        "sistema_casas": "Placidus",
+        "cuerpos": [
+            {
+                "clave": "sun",
+                "nombre": "Sol",
+                "simbolo": "☉",
+                "color": "#FFD700",
+                "longitud": 17.9107,
+                "signo": 0,
+                "grado_en_signo": 17.9107,
+                "casa": 12,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 7.026,
+                "velocidad": 0.98358,
+                "dignidad": {
+                    "type": "exaltation",
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "moon",
+                "nombre": "Luna",
+                "simbolo": "☽",
+                "color": "#C0C0C0",
+                "longitud": 325.7751,
+                "signo": 10,
+                "grado_en_signo": 25.7751,
+                "casa": 10,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": -17.5216,
+                "velocidad": 12.78717,
+                "dignidad": {
+                    "type": null,
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "mercury",
+                "nombre": "Mercurio",
+                "simbolo": "☿",
+                "color": "#A0A0FF",
+                "longitud": 6.1497,
+                "signo": 0,
+                "grado_en_signo": 6.1497,
+                "casa": 11,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 0.6032,
+                "velocidad": 1.86579,
+                "dignidad": {
+                    "type": null,
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "venus",
+                "nombre": "Venus",
+                "simbolo": "♀",
+                "color": "#FF69B4",
+                "longitud": 21.0282,
+                "signo": 0,
+                "grado_en_signo": 21.0282,
+                "casa": 12,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 7.168,
+                "velocidad": 1.23988,
+                "dignidad": {
+                    "type": "detriment",
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "mars",
+                "nombre": "Marte",
+                "simbolo": "♂",
+                "color": "#FF5555",
+                "longitud": 80.3553,
+                "signo": 2,
+                "grado_en_signo": 20.3553,
+                "casa": 2,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": true,
+                "declinacion": 24.5621,
+                "velocidad": 0.60105,
+                "dignidad": {
+                    "type": null,
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "jupiter",
+                "nombre": "Júpiter",
+                "simbolo": "♃",
+                "color": "#FFA500",
+                "longitud": 324.4747,
+                "signo": 10,
+                "grado_en_signo": 24.4747,
+                "casa": 10,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": -13.9948,
+                "velocidad": 0.18609,
+                "dignidad": {
+                    "type": null,
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "saturn",
+                "nombre": "Saturno",
+                "simbolo": "♄",
+                "color": "#DAA520",
+                "longitud": 311.8554,
+                "signo": 10,
+                "grado_en_signo": 11.8554,
+                "casa": 10,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": -17.7417,
+                "velocidad": 0.06976,
+                "dignidad": {
+                    "type": "domicile",
+                    "modern": false
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "uranus",
+                "nombre": "Urano",
+                "simbolo": "♅",
+                "color": "#40E0D0",
+                "longitud": 39.3607,
+                "signo": 1,
+                "grado_en_signo": 9.3607,
+                "casa": 1,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 14.2227,
+                "velocidad": 0.05454,
+                "dignidad": {
+                    "type": null,
+                    "modern": true
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "neptune",
+                "nombre": "Neptuno",
+                "simbolo": "♆",
+                "color": "#4169E1",
+                "longitud": 351.6493,
+                "signo": 11,
+                "grado_en_signo": 21.6493,
+                "casa": 11,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": -4.3003,
+                "velocidad": 0.03484,
+                "dignidad": {
+                    "type": "domicile",
+                    "modern": true
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "pluto",
+                "nombre": "Plutón",
+                "simbolo": "♇",
+                "color": "#C084FC",
+                "longitud": 296.7083,
+                "signo": 9,
+                "grado_en_signo": 26.7083,
+                "casa": 9,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": -22.1553,
+                "velocidad": 0.00983,
+                "dignidad": {
+                    "type": null,
+                    "modern": true
+                },
+                "es_punto": false
+            },
+            {
+                "clave": "chiron",
+                "nombre": "Quirón",
+                "simbolo": "⚷",
+                "color": "#9FB0C4",
+                "longitud": 9.3947,
+                "signo": 0,
+                "grado_en_signo": 9.3947,
+                "casa": 11,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 5.8635,
+                "velocidad": 0.05821,
+                "dignidad": null,
+                "es_punto": true
+            },
+            {
+                "clave": "node_north",
+                "nombre": "Nodo Norte",
+                "simbolo": "☊",
+                "color": "#E9D5FF",
+                "longitud": 72.3885,
+                "signo": 2,
+                "grado_en_signo": 12.3885,
+                "casa": 2,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 22.2782,
+                "velocidad": -0.09192,
+                "dignidad": null,
+                "es_punto": true
+            },
+            {
+                "clave": "node_south",
+                "nombre": "Nodo Sur",
+                "simbolo": "☋",
+                "color": "#9D8EC4",
+                "longitud": 252.3885,
+                "signo": 8,
+                "grado_en_signo": 12.3885,
+                "casa": 8,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": -22.2782,
+                "velocidad": -0.09192,
+                "dignidad": null,
+                "es_punto": true
+            },
+            {
+                "clave": "lilith",
+                "nombre": "Lilith",
+                "simbolo": "⚸",
+                "color": "#B08CD9",
+                "longitud": 48.6266,
+                "signo": 1,
+                "grado_en_signo": 18.6266,
+                "casa": 1,
+                "retrogrado": false,
+                "estacionario": false,
+                "fuera_de_limites": false,
+                "declinacion": 17.3661,
+                "velocidad": 0.1114,
+                "dignidad": null,
+                "es_punto": true
+            }
+        ],
+        "ejes": {
+            "asc": {
+                "longitud": 36.6269,
+                "signo": 1,
+                "grado_en_signo": 6.6269
+            },
+            "mc": {
+                "longitud": 311.1272,
+                "signo": 10,
+                "grado_en_signo": 11.1272
+            },
+            "dsc": {
+                "longitud": 216.6269,
+                "signo": 7,
+                "grado_en_signo": 6.6269
+            },
+            "ic": {
+                "longitud": 131.1272,
+                "signo": 4,
+                "grado_en_signo": 11.1272
+            }
+        },
+        "cuspides": [
+            36.62693866875394,
+            65.57744050337416,
+            97.43253238087,
+            131.12717838462368,
+            163.71948537713138,
+            192.41237184514466,
+            216.62693866875395,
+            245.57744050337416,
+            277.43253238087,
+            311.1271783846237,
+            343.7194853771313,
+            12.412371845144675
+        ],
+        "aspectos": [
+            {
+                "a": "uranus",
+                "b": "chiron",
+                "tipo": "semisextile",
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "color": "#9a8fbf",
+                "orbe": 0.0339,
+                "orbe_dm": "0°02′",
+                "exactitud": 0.9774,
+                "aplicativo": false,
+                "grupo": "menores"
+            },
+            {
+                "a": "saturn",
+                "b": "node_north",
+                "tipo": "trine",
+                "nombre": "trígono",
+                "simbolo": "△",
+                "color": "#5fd48a",
+                "orbe": 0.5331,
+                "orbe_dm": "0°32′",
+                "exactitud": 0.8934,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "saturn",
+                "b": "mc",
+                "tipo": "conjunction",
+                "nombre": "conjunción",
+                "simbolo": "☌",
+                "color": "#f5d76e",
+                "orbe": 0.7283,
+                "orbe_dm": "0°44′",
+                "exactitud": 0.8786,
+                "aplicativo": true,
+                "grupo": "ejes"
+            },
+            {
+                "a": "moon",
+                "b": "jupiter",
+                "tipo": "conjunction",
+                "nombre": "conjunción",
+                "simbolo": "☌",
+                "color": "#f5d76e",
+                "orbe": 1.3005,
+                "orbe_dm": "1°18′",
+                "exactitud": 0.8374,
+                "aplicativo": false,
+                "grupo": "mayores"
+            },
+            {
+                "a": "venus",
+                "b": "mars",
+                "tipo": "sextile",
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "color": "#6fc9f7",
+                "orbe": 0.6729,
+                "orbe_dm": "0°40′",
+                "exactitud": 0.8318,
+                "aplicativo": false,
+                "grupo": "mayores"
+            },
+            {
+                "a": "mars",
+                "b": "neptune",
+                "tipo": "square",
+                "nombre": "cuadratura",
+                "simbolo": "□",
+                "color": "#ff9a3c",
+                "orbe": 1.2939,
+                "orbe_dm": "1°18′",
+                "exactitud": 0.7843,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "mercury",
+                "b": "asc",
+                "tipo": "semisextile",
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "color": "#9a8fbf",
+                "orbe": 0.4773,
+                "orbe_dm": "0°29′",
+                "exactitud": 0.7614,
+                "aplicativo": false,
+                "grupo": "menores"
+            },
+            {
+                "a": "venus",
+                "b": "neptune",
+                "tipo": "semisextile",
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "color": "#9a8fbf",
+                "orbe": 0.621,
+                "orbe_dm": "0°37′",
+                "exactitud": 0.6895,
+                "aplicativo": true,
+                "grupo": "menores"
+            },
+            {
+                "a": "node_north",
+                "b": "mc",
+                "tipo": "trine",
+                "nombre": "trígono",
+                "simbolo": "△",
+                "color": "#5fd48a",
+                "orbe": 1.2614,
+                "orbe_dm": "1°16′",
+                "exactitud": 0.6847,
+                "aplicativo": true,
+                "grupo": "ejes"
+            },
+            {
+                "a": "uranus",
+                "b": "mc",
+                "tipo": "square",
+                "nombre": "cuadratura",
+                "simbolo": "□",
+                "color": "#ff9a3c",
+                "orbe": 1.7664,
+                "orbe_dm": "1°46′",
+                "exactitud": 0.6467,
+                "aplicativo": false,
+                "grupo": "ejes"
+            },
+            {
+                "a": "sun",
+                "b": "lilith",
+                "tipo": "semisextile",
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "color": "#9a8fbf",
+                "orbe": 0.7159,
+                "orbe_dm": "0°43′",
+                "exactitud": 0.642,
+                "aplicativo": true,
+                "grupo": "menores"
+            },
+            {
+                "a": "sun",
+                "b": "venus",
+                "tipo": "conjunction",
+                "nombre": "conjunción",
+                "simbolo": "☌",
+                "color": "#f5d76e",
+                "orbe": 3.1176,
+                "orbe_dm": "3°07′",
+                "exactitud": 0.6103,
+                "aplicativo": false,
+                "grupo": "mayores"
+            },
+            {
+                "a": "uranus",
+                "b": "asc",
+                "tipo": "conjunction",
+                "nombre": "conjunción",
+                "simbolo": "☌",
+                "color": "#f5d76e",
+                "orbe": 2.7338,
+                "orbe_dm": "2°44′",
+                "exactitud": 0.5444,
+                "aplicativo": true,
+                "grupo": "ejes"
+            },
+            {
+                "a": "mercury",
+                "b": "chiron",
+                "tipo": "conjunction",
+                "nombre": "conjunción",
+                "simbolo": "☌",
+                "color": "#f5d76e",
+                "orbe": 3.245,
+                "orbe_dm": "3°15′",
+                "exactitud": 0.5364,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "moon",
+                "b": "pluto",
+                "tipo": "semisextile",
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "color": "#9a8fbf",
+                "orbe": 0.9331,
+                "orbe_dm": "0°56′",
+                "exactitud": 0.5334,
+                "aplicativo": true,
+                "grupo": "menores"
+            },
+            {
+                "a": "sun",
+                "b": "mars",
+                "tipo": "sextile",
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "color": "#6fc9f7",
+                "orbe": 2.4447,
+                "orbe_dm": "2°27′",
+                "exactitud": 0.5111,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "saturn",
+                "b": "uranus",
+                "tipo": "square",
+                "nombre": "cuadratura",
+                "simbolo": "□",
+                "color": "#ff9a3c",
+                "orbe": 2.4947,
+                "orbe_dm": "2°30′",
+                "exactitud": 0.5011,
+                "aplicativo": false,
+                "grupo": "mayores"
+            },
+            {
+                "a": "chiron",
+                "b": "mc",
+                "tipo": "sextile",
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "color": "#6fc9f7",
+                "orbe": 1.7325,
+                "orbe_dm": "1°44′",
+                "exactitud": 0.4225,
+                "aplicativo": false,
+                "grupo": "ejes"
+            },
+            {
+                "a": "mars",
+                "b": "jupiter",
+                "tipo": "trine",
+                "nombre": "trígono",
+                "simbolo": "△",
+                "color": "#5fd48a",
+                "orbe": 4.1193,
+                "orbe_dm": "4°07′",
+                "exactitud": 0.3134,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "moon",
+                "b": "mars",
+                "tipo": "trine",
+                "nombre": "trígono",
+                "simbolo": "△",
+                "color": "#5fd48a",
+                "orbe": 5.4198,
+                "orbe_dm": "5°25′",
+                "exactitud": 0.2257,
+                "aplicativo": false,
+                "grupo": "mayores"
+            },
+            {
+                "a": "saturn",
+                "b": "chiron",
+                "tipo": "sextile",
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "color": "#6fc9f7",
+                "orbe": 2.4608,
+                "orbe_dm": "2°28′",
+                "exactitud": 0.1797,
+                "aplicativo": false,
+                "grupo": "mayores"
+            },
+            {
+                "a": "venus",
+                "b": "jupiter",
+                "tipo": "sextile",
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "color": "#6fc9f7",
+                "orbe": 3.4465,
+                "orbe_dm": "3°27′",
+                "exactitud": 0.1384,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "mars",
+                "b": "lilith",
+                "tipo": "semisextile",
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "color": "#9a8fbf",
+                "orbe": 1.7287,
+                "orbe_dm": "1°44′",
+                "exactitud": 0.1356,
+                "aplicativo": false,
+                "grupo": "menores"
+            },
+            {
+                "a": "venus",
+                "b": "pluto",
+                "tipo": "square",
+                "nombre": "cuadratura",
+                "simbolo": "□",
+                "color": "#ff9a3c",
+                "orbe": 5.6801,
+                "orbe_dm": "5°41′",
+                "exactitud": 0.0533,
+                "aplicativo": true,
+                "grupo": "mayores"
+            },
+            {
+                "a": "moon",
+                "b": "venus",
+                "tipo": "sextile",
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "color": "#6fc9f7",
+                "orbe": 4.7469,
+                "orbe_dm": "4°45′",
+                "exactitud": 0.0506,
+                "aplicativo": false,
+                "grupo": "mayores"
+            }
+        ],
+        "figuras": [
+            {
+                "tipo": "angular",
+                "etiqueta": "CUADRATURA FIJA ANGULAR",
+                "detalle": "Saturno\/MC – Urano\/AC",
+                "cuerpos": [
+                    "saturn",
+                    "uranus"
+                ],
+                "asociados": [],
+                "color": "#ff9a3c"
+            },
+            {
+                "tipo": "small_grand_trine",
+                "etiqueta": "PEQUEÑO GRAN TRÍGONO",
+                "detalle": null,
+                "cuerpos": [
+                    "venus",
+                    "mars",
+                    "jupiter"
+                ],
+                "asociados": [
+                    "sun",
+                    "moon"
+                ],
+                "color": "#5fd48a"
+            }
+        ],
+        "reparto": {
+            "elements": {
+                "Fuego": {
+                    "weight": 7,
+                    "count": 3,
+                    "color": "#f0783c",
+                    "frac": 0.32558139534883723
+                },
+                "Tierra": {
+                    "weight": 4,
+                    "count": 2,
+                    "color": "#7bbf6a",
+                    "frac": 0.18604651162790697
+                },
+                "Aire": {
+                    "weight": 10,
+                    "count": 4,
+                    "color": "#e8c34a",
+                    "frac": 0.46511627906976744
+                },
+                "Agua": {
+                    "weight": 0.5,
+                    "count": 1,
+                    "color": "#5aa6d8",
+                    "frac": 0.023255813953488372
+                }
+            },
+            "modalities": {
+                "Cardinal": {
+                    "weight": 7.5,
+                    "count": 4,
+                    "color": "#e9a0d8",
+                    "frac": 0.3488372093023256
+                },
+                "Fijo": {
+                    "weight": 11.5,
+                    "count": 4,
+                    "color": "#a982e0",
+                    "frac": 0.5348837209302325
+                },
+                "Mutable": {
+                    "weight": 2.5,
+                    "count": 2,
+                    "color": "#8fd0e0",
+                    "frac": 0.11627906976744186
+                }
+            },
+            "total": 21.5
+        },
+        "luna": {
+            "rudhyar": "last_quarter",
+            "elongacion": 307.86,
+            "iluminacion": 19.4
+        },
+        "natal": {
+            "big_three": {
+                "sun": 0,
+                "moon": 10,
+                "asc": 1
+            },
+            "chart_ruler": {
+                "body": "venus",
+                "modern": null,
+                "sign": 0,
+                "house": 12,
+                "dignity": "detriment"
+            },
+            "sect": {
+                "type": "diurnal",
+                "luminary": "sun"
+            },
+            "angular": [
+                {
+                    "body": "saturn",
+                    "angle": "mc",
+                    "distance": 0.7282
+                },
+                {
+                    "body": "uranus",
+                    "angle": "asc",
+                    "distance": 2.7338
+                }
+            ],
+            "tight_aspects": [
+                {
+                    "a": "venus",
+                    "b": "mars",
+                    "type": "sextile",
+                    "name": "sextil",
+                    "symbol": "⚹",
+                    "color": "#6fc9f7",
+                    "orb": 0.6729,
+                    "orb_dm": "0°40′",
+                    "applying": false,
+                    "a_name": "Venus",
+                    "b_name": "Marte",
+                    "a_symbol": "♀",
+                    "b_symbol": "♂"
+                },
+                {
+                    "a": "saturn",
+                    "b": "mc",
+                    "type": "conjunction",
+                    "name": "conjunción",
+                    "symbol": "☌",
+                    "color": "#f5d76e",
+                    "orb": 0.7283,
+                    "orb_dm": "0°44′",
+                    "applying": true,
+                    "a_name": "Saturno",
+                    "b_name": "Medio Cielo",
+                    "a_symbol": "♄",
+                    "b_symbol": "MC"
+                },
+                {
+                    "a": "mars",
+                    "b": "neptune",
+                    "type": "square",
+                    "name": "cuadratura",
+                    "symbol": "□",
+                    "color": "#ff9a3c",
+                    "orb": 1.2939,
+                    "orb_dm": "1°18′",
+                    "applying": true,
+                    "a_name": "Marte",
+                    "b_name": "Neptuno",
+                    "a_symbol": "♂",
+                    "b_symbol": "♆"
+                }
+            ],
+            "dominant": {
+                "element": "Aire",
+                "modality": "Fijo"
+            },
+            "strongest": {
+                "body": "saturn",
+                "score": 12,
+                "reasons": [
+                    "angular",
+                    "domicile"
+                ],
+                "aspects": 4
+            },
+            "dignities": {
+                "sun": {
+                    "type": "exaltation",
+                    "modern": false
+                },
+                "moon": {
+                    "type": null,
+                    "modern": false
+                },
+                "mercury": {
+                    "type": null,
+                    "modern": false
+                },
+                "venus": {
+                    "type": "detriment",
+                    "modern": false
+                },
+                "mars": {
+                    "type": null,
+                    "modern": false
+                },
+                "jupiter": {
+                    "type": null,
+                    "modern": false
+                },
+                "saturn": {
+                    "type": "domicile",
+                    "modern": false
+                },
+                "uranus": {
+                    "type": null,
+                    "modern": true
+                },
+                "neptune": {
+                    "type": "domicile",
+                    "modern": true
+                },
+                "pluto": {
+                    "type": null,
+                    "modern": true
+                }
+            },
+            "house_rulers": [
+                {
+                    "ruler": "venus",
+                    "modern": null,
+                    "ruler_house": 12,
+                    "ruler_sign": 0
+                },
+                {
+                    "ruler": "mercury",
+                    "modern": null,
+                    "ruler_house": 11,
+                    "ruler_sign": 0
+                },
+                {
+                    "ruler": "moon",
+                    "modern": null,
+                    "ruler_house": 10,
+                    "ruler_sign": 10
+                },
+                {
+                    "ruler": "sun",
+                    "modern": null,
+                    "ruler_house": 12,
+                    "ruler_sign": 0
+                },
+                {
+                    "ruler": "mercury",
+                    "modern": null,
+                    "ruler_house": 11,
+                    "ruler_sign": 0
+                },
+                {
+                    "ruler": "venus",
+                    "modern": null,
+                    "ruler_house": 12,
+                    "ruler_sign": 0
+                },
+                {
+                    "ruler": "mars",
+                    "modern": "pluto",
+                    "ruler_house": 2,
+                    "ruler_sign": 2
+                },
+                {
+                    "ruler": "jupiter",
+                    "modern": null,
+                    "ruler_house": 10,
+                    "ruler_sign": 10
+                },
+                {
+                    "ruler": "saturn",
+                    "modern": null,
+                    "ruler_house": 10,
+                    "ruler_sign": 10
+                },
+                {
+                    "ruler": "saturn",
+                    "modern": "uranus",
+                    "ruler_house": 10,
+                    "ruler_sign": 10
+                },
+                {
+                    "ruler": "jupiter",
+                    "modern": "neptune",
+                    "ruler_house": 10,
+                    "ruler_sign": 10
+                },
+                {
+                    "ruler": "mars",
+                    "modern": null,
+                    "ruler_house": 2,
+                    "ruler_sign": 2
+                }
+            ],
+            "hemispheres": {
+                "above": 8,
+                "below": 2,
+                "east": 9,
+                "west": 1,
+                "total": 10
+            },
+            "prenatal": {
+                "lunation": {
+                    "type": "full",
+                    "jde": 2459302.284159835,
+                    "timestamp": 1616957279,
+                    "longitude": 188.3054,
+                    "sign": 6,
+                    "house": 5
+                },
+                "eclipse_solar": {
+                    "type": "total",
+                    "label": "total",
+                    "jde": 2459198.17900295,
+                    "timestamp": 1607962594,
+                    "longitude": 263.1372,
+                    "sign": 8,
+                    "house": 8
+                },
+                "eclipse_lunar": {
+                    "type": "penumbral",
+                    "label": "penumbral",
+                    "jde": 2459183.8964957506,
+                    "timestamp": 1606728585,
+                    "longitude": 68.6344,
+                    "sign": 2,
+                    "house": 2
+                }
+            }
+        },
+        "orbes": {
+            "conjunction": {
+                "nombre": "conjunción",
+                "simbolo": "☌",
+                "orbes": [
+                    8,
+                    7,
+                    6,
+                    5,
+                    3
+                ]
+            },
+            "opposition": {
+                "nombre": "oposición",
+                "simbolo": "☍",
+                "orbes": [
+                    8,
+                    7,
+                    6,
+                    5,
+                    3
+                ]
+            },
+            "trine": {
+                "nombre": "trígono",
+                "simbolo": "△",
+                "orbes": [
+                    7,
+                    6,
+                    5,
+                    4,
+                    2
+                ]
+            },
+            "square": {
+                "nombre": "cuadratura",
+                "simbolo": "□",
+                "orbes": [
+                    7,
+                    6,
+                    5,
+                    4,
+                    2
+                ]
+            },
+            "sextile": {
+                "nombre": "sextil",
+                "simbolo": "⚹",
+                "orbes": [
+                    5,
+                    4,
+                    3,
+                    3,
+                    2
+                ]
+            },
+            "quincunx": {
+                "nombre": "quincuncio",
+                "simbolo": "⚻",
+                "orbes": [
+                    2,
+                    2,
+                    1.5,
+                    1.5,
+                    1
+                ]
+            },
+            "semisextile": {
+                "nombre": "semisextil",
+                "simbolo": "⚺",
+                "orbes": [
+                    2,
+                    2,
+                    1.5,
+                    1.5,
+                    1
+                ]
+            }
+        },
+        "clases_orbe": [
+            "luminares",
+            "personales",
+            "sociales y transpersonales",
+            "ángulos",
+            "nodos, Lilith y Quirón"
+        ]
+    }
+}

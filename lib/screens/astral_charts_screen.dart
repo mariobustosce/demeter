@@ -3,6 +3,7 @@ import '../models/carta.dart';
 import '../services/astral_chart_service.dart';
 import '../widgets/firmamento/tablas.dart';
 import 'create_astral_chart_screen.dart';
+import 'firmamento_detail_screen.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -59,6 +60,21 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
     _loadCharts(); // Refrescar al volver
   }
 
+  Future<void> _openDetail(Carta chart) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FirmamentoDetailScreen(
+          cartaId: chart.id,
+          carta: chart,
+          service: widget.service,
+        ),
+      ),
+    );
+    // El servidor puede haberla recalculado o corregido la zona.
+    _loadCharts();
+  }
+
   Future<void> _confirmDelete(BuildContext context, Carta chart) async {
     final chartTitle = chart.titulo.isEmpty ? 'este firmamento' : chart.titulo;
 
@@ -69,7 +85,11 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.redAccent,
+              size: 28,
+            ),
             SizedBox(width: 12),
             Text('Confirmar Eliminación', style: TextStyle(color: textColor)),
           ],
@@ -81,15 +101,23 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar', style: TextStyle(color: secondaryTextColor)),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -105,7 +133,10 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             ),
             SizedBox(width: 12),
             Text('Eliminando firmamento...'),
@@ -169,18 +200,17 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
           children: [
             const Text(
               'Tus cartas astrales: fotos de los astros del cielo en un momento y lugar',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: textColor, fontSize: 14),
             ),
             const SizedBox(height: 30),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: accentCyan))
+                  ? const Center(
+                      child: CircularProgressIndicator(color: accentCyan),
+                    )
                   : _charts.isEmpty
-                      ? _buildEmptyState()
-                      : _buildChartsList(),
+                  ? _buildEmptyState()
+                  : _buildChartsList(),
             ),
           ],
         ),
@@ -208,9 +238,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
         decoration: BoxDecoration(
           color: cardBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.05),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -333,87 +361,96 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
         final chart = _charts[index];
         final signo = chart.sunSign == null ? null : kSignos[chart.sunSign!];
         return Card(
-          color: const Color(0xFF15151D), // Un fondo oscuro elegante para la carta
+          color: const Color(
+            0xFF15151D,
+          ), // Un fondo oscuro elegante para la carta
           margin: const EdgeInsets.only(bottom: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Signo solar, del grado real.
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: accentPurple.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    signo == null ? '☉' : glifoTexto(signo.glifo),
-                    style: TextStyle(
-                      fontSize: 22,
-                      color: signo?.color ?? accentPurple,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _openDetail(chart),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Signo solar, del grado real.
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: accentPurple.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      signo == null ? '☉' : glifoTexto(signo.glifo),
+                      style: TextStyle(
+                        fontSize: 22,
+                        color: signo?.color ?? accentPurple,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        chart.titulo.isEmpty ? 'Firmamento' : chart.titulo,
-                        style: const TextStyle(
-                          color: Color.fromARGB(255, 239, 242, 243),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (signo != null) ...[
-                        const SizedBox(height: 2),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Sol en ${signo.nombre}',
-                          style: TextStyle(
-                            color: signo.color,
-                            fontSize: 12,
+                          chart.titulo.isEmpty ? 'Firmamento' : chart.titulo,
+                          style: const TextStyle(
+                            color: Color.fromARGB(255, 239, 242, 243),
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 6.0,
-                        children: [
-                          _chip(
-                            Icons.calendar_today,
-                            '${_formatDate(chart.birthDate)} '
-                            '${chart.birthTime.isEmpty ? '--:--' : chart.birthTime}',
-                          ),
-                          if (chart.lat != null && chart.lon != null)
-                            _chip(
-                              Icons.public,
-                              '${_formatCoord(chart.lat)}°, ${_formatCoord(chart.lon)}°',
+                        if (signo != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Sol en ${signo.nombre}',
+                            style: TextStyle(
+                              color: signo.color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
-                          if (chart.timezone != null)
-                            _chip(Icons.schedule, chart.timezone!),
-                          if (chart.tzRevisar) const _RevisarZona(),
+                          ),
                         ],
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 6.0,
+                          children: [
+                            _chip(
+                              Icons.calendar_today,
+                              '${_formatDate(chart.birthDate)} '
+                              '${chart.birthTime.isEmpty ? '--:--' : chart.birthTime}',
+                            ),
+                            if (chart.lat != null && chart.lon != null)
+                              _chip(
+                                Icons.public,
+                                '${_formatCoord(chart.lat)}°, ${_formatCoord(chart.lon)}°',
+                              ),
+                            if (chart.timezone != null)
+                              _chip(Icons.schedule, chart.timezone!),
+                            if (chart.tzRevisar) const _RevisarZona(),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Eliminar',
-                  onPressed: () => _confirmDelete(context, chart),
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                ),
-              ],
+                  IconButton(
+                    tooltip: 'Eliminar',
+                    onPressed: () => _confirmDelete(context, chart),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

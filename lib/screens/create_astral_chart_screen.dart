@@ -8,8 +8,10 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../config/zonas_iana.dart';
 import '../models/carta.dart';
+import '../models/firmamento.dart';
 import '../services/api_client.dart';
 import '../services/astral_chart_service.dart';
+import 'firmamento_detail_screen.dart';
 
 const backgroundColor = Color(0xFF0A0A0F);
 const accentCyan = Color(0xFF4FD0E7);
@@ -228,7 +230,24 @@ class _CreateAstralChartScreenState extends State<CreateAstralChartScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context); // Volver atrás a la lista
+      // El alta ya trae `data.firmamento`: al detalle sin otra petición.
+      final data = response['data'];
+      final detalle = data is Map ? FirmamentoDetalle.fromJson(data['data']) : null;
+      final id = detalle?.carta?.id;
+      if (detalle == null || id == null) {
+        Navigator.pop(context); // Volver atrás a la lista
+        return;
+      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FirmamentoDetailScreen(
+            cartaId: id,
+            inicial: detalle,
+            service: widget.service,
+          ),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

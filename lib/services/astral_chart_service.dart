@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/carta.dart';
+import '../models/firmamento.dart';
 import 'api_client.dart';
 
 class AstralChartService {
@@ -19,6 +20,14 @@ class AstralChartService {
       debugPrint("Error fetching user charts: $e");
       return [];
     }
+  }
+
+  /// GET /api/user/charts/{id}. Si la carta era del motor anterior, el
+  /// servidor la recalcula antes de responder. Un 404 es «no existe».
+  Future<FirmamentoDetalle> detalle(int id) async {
+    final body = jsonMap(await _api.get('/user/charts/$id'));
+    return FirmamentoDetalle.fromJson(body['data']) ??
+        (throw const ApiException('Respuesta inesperada del servidor.'));
   }
 
   /// GET /api/user/zona: la zona IANA del lugar y el desfase que regía esa
