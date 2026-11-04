@@ -12,7 +12,7 @@ import '../services/billing_service.dart';
 import '../services/push_service.dart';
 import '../widgets/wallpaper_sheet.dart';
 import 'alerts_tab.dart';
-import 'astral_charts_screen.dart';
+import 'observatorio_tab.dart';
 import 'avisos_screen.dart';
 import 'landscapes_screen.dart';
 import 'oracle_consultations_screen.dart';
@@ -38,7 +38,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
 
-  // MAPA, CONSULTAS, FIRMAMENTOS y ALERTAS.
+  // MAPA, CONSULTAS, OBSERVATORIO y ALERTAS.
   static const int _alertsTab = 3;
   late final TabController _tabs = TabController(length: 4, vsync: this)
     ..addListener(_onTabChanged);
@@ -269,7 +269,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
             tabs: const [
               Tab(text: "MAPA"),
               Tab(text: "CONSULTAS"),
-              Tab(text: "FIRMAMENTOS"),
+              Tab(text: "OBSERVATORIO"),
               Tab(child: _AlertsTabLabel()),
             ],
           ),
@@ -303,7 +303,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
           children: [
             UserMapTab(active: _mapActive, footer: _bannerSlot()),
             const OracleConsultationsScreen(),
-            const AstralChartsScreen(),
+            const ObservatorioTab(),
             AlertsTab(active: _alertsActive, onCreateFavorite: _goCreateFavorite),
           ],
         ),
