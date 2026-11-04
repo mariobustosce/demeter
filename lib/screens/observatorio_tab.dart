@@ -6,6 +6,7 @@ import '../services/observatorio_service.dart';
 import '../widgets/firmamento/tablas.dart';
 import 'astral_charts_screen.dart';
 import 'cielos_screen.dart';
+import 'estudio_detail_screen.dart';
 
 /// El Observatorio: Cielos (el clima de los favoritos) y Firmamentos (las
 /// cartas astrales), con un conmutador visible para ir y volver.
@@ -22,6 +23,16 @@ class ObservatorioTab extends StatefulWidget {
 
 class _ObservatorioTabState extends State<ObservatorioTab> {
   bool _firmamentos = false;
+
+  void _abrirEstudio(BuildContext context, Estudio e, Observatorio d) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => EstudioDetailScreen(
+        estudio: e,
+        precioDescarga: d.precioDescarga,
+        service: widget.observatorio,
+      ),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +63,7 @@ class _ObservatorioTabState extends State<ObservatorioTab> {
               children: [
                 CielosScreen(
                   service: widget.observatorio,
-                  onVerEstudio: widget.onVerEstudio == null
-                      ? null
-                      : (e, d) => widget.onVerEstudio!(context, e, d),
+                  onVerEstudio: (e, d) => (widget.onVerEstudio ?? _abrirEstudio)(context, e, d),
                 ),
                 AstralChartsScreen(service: widget.cartas),
               ],

@@ -1,3 +1,4 @@
+import '../models/estudio_detalle.dart';
 import '../models/observatorio.dart';
 import 'api_client.dart';
 import 'coin_balance.dart';
@@ -23,6 +24,24 @@ class ObservatorioService {
 
   /// Desde 30 días antes de vencer; reanuda uno en pausa.
   Future<Estudio> renovar(int estudioId) => _estudioDe(_api.post('/estudios/$estudioId/renovar'));
+
+  /// Cabecera del estudio, con su primera y última captura. Lo ajeno es 404.
+  Future<Estudio> estudio(int id) async {
+    final body = jsonMap(await _api.get('/estudios/$id'));
+    return Estudio.fromJson(body['estudio']) ??
+        (throw const ApiException('Respuesta inesperada del servidor.'));
+  }
+
+  /// Los últimos 14 días, como el detalle web.
+  Future<ResumenEstudio> resumen14(int id) async =>
+      ResumenEstudio.fromJson(jsonMap(await _api.get('/estudios/$id/resumen')));
+
+  /// Una página de capturas, la más reciente primero (máx. 200 por página).
+  Future<PaginaCapturas> capturas(int id, {int pagina = 1, int porPagina = 50}) async =>
+      PaginaCapturas.fromJson(jsonMap(await _api.get('/estudios/$id/capturas', query: {
+        'page': '$pagina',
+        'por_pagina': '${porPagina.clamp(1, 200)}',
+      })));
 
   Future<Estudio> _estudioDe(Future<dynamic> peticion) async {
     final body = jsonMap(await peticion);
