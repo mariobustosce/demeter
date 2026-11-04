@@ -30,6 +30,16 @@ class AstralChartService {
         (throw const ApiException('Respuesta inesperada del servidor.'));
   }
 
+  /// PATCH /api/user/charts/{id}/zona: cambia la zona (nombre IANA) y
+  /// recalcula. La hora local anotada no cambia. Devuelve el detalle nuevo y
+  /// el mensaje del servidor; lanza [ApiException] (422, 429, 404).
+  Future<({FirmamentoDetalle detalle, String? message})> cambiarZona(int id, String timezone) async {
+    final body = jsonMap(await _api.patch('/user/charts/$id/zona', body: {'timezone': timezone}));
+    final detalle = FirmamentoDetalle.fromJson(body['data']) ??
+        (throw const ApiException('Respuesta inesperada del servidor.'));
+    return (detalle: detalle, message: apiMessage(body));
+  }
+
   /// GET /api/user/zona: la zona IANA del lugar y el desfase que regía esa
   /// fecha y hora. Lanza [ApiException] si falla. Lleva coordenadas en la
   /// query (lo pide el contrato): no se registra.

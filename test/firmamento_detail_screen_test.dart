@@ -180,6 +180,113 @@ void main() {
     expect(find.textContaining('07/04/2021 12:33'), findsOneWidget);
   });
 
+  group('recalcular con la zona del lugar', () {
+    // Lo que responde el servidor tras corregir la zona.
+    Map<String, dynamic> corregido() {
+      final f = jsonDecode(jsonEncode(_fixture['firmamento'])) as Map<String, dynamic>;
+      f['zona'] = {
+        'timezone': 'America/Santiago',
+        'desfase': -14400,
+        'rotulo': 'UTC−04:00',
+        'horario_verano': false,
+        'revisar': false,
+        'sugerida': null,
+      };
+      return f;
+    }
+
+    late List<http.Request> pedidos;
+    late int estado;
+
+    AstralChartService service() => AstralChartService(
+          api: ApiClient(
+            baseUrl: 'https://windowsdemeter.com/api',
+            httpClient: MockClient((req) async {
+              pedidos.add(req);
+              if (estado != 200) {
+                return http.Response(jsonEncode({'success': false, 'message': 'Zona no válida.'}), estado,
+                    headers: _json);
+              }
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'message': 'Zona corregida a America/Santiago.',
+                  'data': {'firmamento': corregido()},
+                }),
+                200,
+                headers: _json,
+              );
+            }),
+          ),
+        );
+
+    setUp(() {
+      pedidos = [];
+      estado = 200;
+    });
+
+    Future<void> abrirYConfirmar(WidgetTester tester) async {
+      await pantallaAlta(tester);
+      await tester.pumpWidget(MaterialApp(
+        home: FirmamentoDetailScreen(
+          cartaId: 3,
+          inicial: FirmamentoDetalle(firmamento: _firmamento()),
+          service: service(),
+        ),
+      ));
+      await frames(tester);
+      await tester.tap(find.text('Recalcular con America/Santiago'));
+      await tester.pumpAndSettle();
+      expect(find.text('El Ascendente y las casas van a cambiar. ¿Recalcular?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Recalcular'));
+      await frames(tester);
+    }
+
+    testWidgets('manda el nombre IANA y repinta con la respuesta', (tester) async {
+      await abrirYConfirmar(tester);
+
+      expect(pedidos, hasLength(1));
+      expect(pedidos.single.method, 'PATCH');
+      expect(pedidos.single.url.path, '/api/user/charts/3/zona');
+      expect(jsonDecode(pedidos.single.body), {'timezone': 'America/Santiago'});
+
+      // Ya no hay aviso y se ve el mensaje del servidor.
+      expect(find.textContaining('regía America/Santiago'), findsNothing);
+      expect(find.text('Zona corregida a America/Santiago.'), findsOneWidget);
+      expect(find.textContaining('America/Santiago (UTC−04:00)'), findsWidgets);
+    });
+
+    testWidgets('cancelar no manda nada', (tester) async {
+      await pantallaAlta(tester);
+      await tester.pumpWidget(MaterialApp(
+        home: FirmamentoDetailScreen(
+          cartaId: 3,
+          inicial: FirmamentoDetalle(firmamento: _firmamento()),
+          service: service(),
+        ),
+      ));
+      await frames(tester);
+      await tester.tap(find.text('Recalcular con America/Santiago'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(pedidos, isEmpty);
+    });
+
+    testWidgets('un 422 muestra el mensaje y deja el aviso', (tester) async {
+      estado = 422;
+      await abrirYConfirmar(tester);
+
+      expect(find.text('Zona no válida.'), findsOneWidget);
+      expect(find.textContaining('regía America/Santiago'), findsOneWidget);
+      // El botón vuelve a estar activo.
+      final boton = tester.widget<OutlinedButton>(
+          find.ancestor(of: find.text('Recalcular con America/Santiago'), matching: find.byType(OutlinedButton)));
+      expect(boton.onPressed, isNotNull);
+    });
+  });
+
   testWidgets('un 404 es «no existe»', (tester) async {
     final service = AstralChartService(
       api: ApiClient(

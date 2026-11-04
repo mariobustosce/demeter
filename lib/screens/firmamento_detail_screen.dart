@@ -38,6 +38,7 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
   Firmamento? _f;
   Carta? _carta;
   String? _error;
+  bool _recalculando = false;
 
   // Lo resaltado en la rueda: un planeta o un par.
   String? _cuerpo;
@@ -221,12 +222,85 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kAmbar.withValues(alpha: 0.4)),
       ),
-      child: Text(
-        'Este firmamento se calculó con ${z.timezone} (${z.rotulo}), pero en ese lugar y esa '
-        'fecha regía ${s.timezone}, ${s.rotulo}. Si la hora se anotó en hora local, el '
-        'Ascendente y las casas están corridos.',
-        style: const TextStyle(color: kTexto, fontSize: 13, height: 1.4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Este firmamento se calculó con ${z.timezone} (${z.rotulo}), pero en ese lugar y esa '
+            'fecha regía ${s.timezone}, ${s.rotulo}. Si la hora se anotó en hora local, el '
+            'Ascendente y las casas están corridos.',
+            style: const TextStyle(color: kTexto, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            // Desactivado mientras espera: el servidor admite 10 por minuto.
+            onPressed: _recalculando ? null : () => _recalcular(s.timezone),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kAmbar,
+              side: BorderSide(color: kAmbar.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: _recalculando
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: kAmbar),
+                  )
+                : const Icon(Icons.schedule, size: 18),
+            label: Text('Recalcular con ${s.timezone}'),
+          ),
+        ],
       ),
+    );
+  }
+
+  Future<void> _recalcular(String timezone) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xEF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Recalcular', style: TextStyle(color: kTexto)),
+        content: const Text(
+          'El Ascendente y las casas van a cambiar. ¿Recalcular?',
+          style: TextStyle(color: kTextoTenue, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar', style: TextStyle(color: kTextoTenue)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Recalcular', style: TextStyle(color: kCian)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _recalculando = true);
+    try {
+      final r = await _service.cambiarZona(widget.cartaId, timezone);
+      if (!mounted) return;
+      setState(() {
+        _f = r.detalle.firmamento;
+        _carta = r.detalle.carta ?? _carta;
+        _cuerpo = null;
+        _par = null;
+      });
+      if (r.message != null) _avisar(r.message!);
+    } on ApiException catch (e) {
+      // 422 o 429: el mensaje ya viene listo para el usuario.
+      if (mounted) _avisar(e.statusCode == 404 ? 'Ese firmamento no existe.' : e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _recalculando = false);
+    }
+  }
+
+  void _avisar(String texto, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(texto), backgroundColor: error ? Colors.redAccent : Colors.green),
     );
   }
 
