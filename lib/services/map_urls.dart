@@ -4,8 +4,9 @@ import 'location_service.dart';
 
 /// URLs de las páginas kiosk del mapa y qué puede abrir el WebView.
 ///
-/// El refresco de la página borra la query salvo `lat`, `lon`, `ratio` y
-/// `paisaje`: por eso el token, el modo y el favorito van en el path.
+/// El refresco de la página borra la query salvo `lat`, `lon`, `ratio`,
+/// `paisaje`, `lang` y `momento`: por eso el token, el modo y el favorito van
+/// en el path.
 class MapUrls {
   MapUrls._();
 
@@ -25,26 +26,29 @@ class MapUrls {
 
   /// El mapa del usuario: [viewBase] es el `base_url` de su token de vista.
   /// Con [favoriteId] se ve ese favorito y [location] se ignora: sus
-  /// coordenadas nunca viajan en la URL.
+  /// coordenadas nunca viajan en la URL. Con [moment] (segundos Unix) se ven
+  /// los astros de ese momento; el clima sigue siendo el de ahora.
   static Uri user(
     String viewBase,
     MapMode mode, {
     int? favoriteId,
     RoundedLocation? location,
+    int? moment,
     required double ratio,
   }) {
     final path = favoriteId == null
         ? '$viewBase/${mode.name}'
         : '$viewBase/${mode.name}/f/$favoriteId';
     return Uri.parse(path).replace(
-      queryParameters: _query(ratio, favoriteId == null ? location : null),
+      queryParameters: _query(ratio, favoriteId == null ? location : null, moment),
     );
   }
 
-  static Map<String, String> _query(double ratio, RoundedLocation? location) => {
+  static Map<String, String> _query(double ratio, RoundedLocation? location, [int? moment]) => {
         if (location != null) 'lat': location.latParam,
         if (location != null) 'lon': location.lonParam,
         'ratio': clampRatio(ratio).toStringAsFixed(2),
+        if (moment != null) 'momento': '$moment',
       };
 
   /// Alto ÷ ancho dentro del rango que acepta el servidor.

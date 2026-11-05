@@ -63,6 +63,21 @@ void main() {
       );
       expect(uri.toString(), '$view/basico/f/12?ratio=2.00');
     });
+
+    test('con otro momento: momento en segundos, también antes de 1970', () {
+      final uri = MapUrls.user(
+        view,
+        MapMode.basico,
+        location: RoundedLocation(-33.45, -70.66),
+        moment: 1617809580,
+        ratio: 2,
+      );
+      expect(uri.queryParameters['momento'], '1617809580');
+      expect(
+        MapUrls.user(view, MapMode.basico, moment: -1000000000, ratio: 2).queryParameters['momento'],
+        '-1000000000',
+      );
+    });
   });
 
   group('qué abre el WebView', () {

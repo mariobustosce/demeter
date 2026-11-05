@@ -20,11 +20,24 @@ const int _maxTitleLength = 60;
 /// Lo que eligió el usuario: ver el lugar en el mapa o, con [save], además
 /// guardarlo en sus favoritos con [name].
 class ExploredPlace {
-  const ExploredPlace({required this.name, required this.location, required this.save});
+  const ExploredPlace({required this.name, required this.location, required this.save, this.moment});
 
   final String name;
   final RoundedLocation location;
   final bool save;
+
+  /// El momento elegido, en la hora del teléfono; null: ahora.
+  final DateTime? moment;
+}
+
+/// Lo que acepta el servidor para el cielo de otro momento.
+final DateTime kFirstMoment = DateTime(1900);
+final DateTime kLastMoment = DateTime(2100, 12, 31, 23, 59);
+
+/// `07/04/2021 12:33`.
+String momentLabel(DateTime m) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(m.day)}/${two(m.month)}/${m.year} ${two(m.hour)}:${two(m.minute)}';
 }
 
 /// La hoja para ver otro lugar en el mapa y guardarlo como favorito: se busca
@@ -67,6 +80,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
   List<PlaceResult>? _results;
   String? _error;
   PlaceResult? _chosen;
+  DateTime? _moment; // null: ahora
 
   // Autocompletar: se espera a que deje de escribir y solo vale la respuesta
   // de lo último que escribió.
@@ -159,6 +173,28 @@ class _ExploreSheetState extends State<_ExploreSheet> {
     ));
   }
 
+  /// La fecha y después la hora, en la hora del teléfono (como el panel de
+  /// la web).
+  Future<void> _pickMoment() async {
+    FocusScope.of(context).unfocus();
+    final base = _moment ?? DateTime.now();
+    final day = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: kFirstMoment,
+      lastDate: kLastMoment,
+      helpText: 'Fecha del cielo',
+    );
+    if (day == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+      helpText: 'Hora del cielo',
+    );
+    if (time == null || !mounted) return;
+    setState(() => _moment = DateTime(day.year, day.month, day.day, time.hour, time.minute));
+  }
+
   /// Un toque en el mini mapa llena la latitud y la longitud y elige el punto.
   void _picked(LatLng p) {
     _lat.text = p.latitude.toStringAsFixed(4);
@@ -179,6 +215,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
         name: name.isEmpty ? chosen.name : name,
         location: chosen.location,
         save: save,
+        moment: _moment,
       ),
     );
   }
@@ -267,6 +304,12 @@ class _ExploreSheetState extends State<_ExploreSheet> {
               ),
               const SizedBox(height: 14),
               if (_mode == _Mode.search) ..._searchFields() else ..._coordinateFields(),
+              const SizedBox(height: 14),
+              _MomentField(
+                moment: _moment,
+                onPick: _pickMoment,
+                onNow: () => setState(() => _moment = null),
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
@@ -537,6 +580,78 @@ class _ResultTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Fecha y hora del cielo que se quiere ver, con el aviso de que el clima no
+/// viaja en el tiempo.
+class _MomentField extends StatelessWidget {
+  const _MomentField({required this.moment, required this.onPick, required this.onNow});
+
+  final DateTime? moment;
+  final VoidCallback onPick;
+  final VoidCallback onNow;
+
+  @override
+  Widget build(BuildContext context) {
+    final moment = this.moment;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Material(
+                color: _fieldBackground,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: _accentCyan.withValues(alpha: moment == null ? 0.2 : 0.6)),
+                ),
+                child: InkWell(
+                  key: const ValueKey('explorar-momento'),
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: onPick,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.event_rounded, color: _secondaryTextColor, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            moment == null ? 'Fecha y hora: ahora' : momentLabel(moment),
+                            style: TextStyle(
+                              color: moment == null ? _secondaryTextColor : _textColor,
+                              fontSize: 14,
+                              fontWeight: moment == null ? FontWeight.normal : FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.edit_calendar_rounded, color: _accentCyan, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (moment != null) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onNow,
+                style: TextButton.styleFrom(foregroundColor: _accentCyan),
+                child: const Text('Ahora'),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Con una fecha pasada o futura solo cambian los datos astronómicos: el clima '
+          'es siempre el de hoy.',
+          style: TextStyle(color: _secondaryTextColor, fontSize: 12),
+        ),
+      ],
     );
   }
 }

@@ -347,6 +347,34 @@ void main() {
       await frames(tester);
     }
 
+    testWidgets('con otra fecha y hora el mapa lleva el momento y se vuelve a ahora', (tester) async {
+      await openWithSearch(tester);
+      await findValparaiso(tester);
+      expect(find.textContaining('el clima es siempre el de hoy'), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const ValueKey('explorar-momento')));
+      await tester.tap(find.byKey(const ValueKey('explorar-momento')));
+      await frames(tester);
+      await tester.tap(find.text('OK')); // la fecha de hoy
+      await frames(tester);
+      await tester.tap(find.text('OK')); // la hora de ahora
+      await frames(tester);
+      expect(find.text('Fecha y hora: ahora'), findsNothing);
+
+      await tester.ensureVisible(find.text('Ver en el mapa'));
+      await tester.tap(find.text('Ver en el mapa'));
+      await frames(tester);
+
+      final momento = int.parse(loaded().last.queryParameters['momento']!);
+      expect((momento - DateTime.now().millisecondsSinceEpoch ~/ 1000).abs(), lessThan(120));
+      expect(find.textContaining('el clima es el de hoy'), findsOneWidget);
+
+      await tester.tap(find.text('Volver a ahora'));
+      await frames(tester);
+      expect(loaded().last.queryParameters.containsKey('momento'), isFalse);
+      expect(find.text('Volver a ahora'), findsNothing);
+    });
+
     testWidgets('se busca, se ve en el mapa con su nombre y se puede guardar con ☆',
         (tester) async {
       server.saveResponse = (

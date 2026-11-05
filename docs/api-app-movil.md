@@ -138,7 +138,7 @@ renueva la vista guiándose por `expira_at`.
 | Ruta | Para quién | Lugar y paisaje |
 |---|---|---|
 | `GET /app/mapa/{modo}` | sin sesión | `?lat&lon` opcionales. Sin ellos, el último lugar guardado en la cookie `demeter_loc`; si no hay, el aproximado por IP, y si tampoco, Santiago. Paisaje gratis al azar, distinto del de la entrada anterior. |
-| `GET /app/mapa/t/{token}/{modo}` | con sesión | Con `?lat&lon` (ubicación actual): si está a menos de 0,0005° de un favorito (unos 50 m), **302** a la URL de ese favorito, que conserva solo `ratio` y `barra`; si no, ese lugar con un paisaje al azar entre los que el usuario puede usar. Sin `lat`/`lon`: el favorito más antiguo. Sin favoritos: al azar. |
+| `GET /app/mapa/t/{token}/{modo}` | con sesión | Con `?lat&lon` (ubicación actual): si está a menos de 0,0005° de un favorito (unos 50 m), **302** a la URL de ese favorito, que conserva solo `ratio`, `barra` y `momento`; si no, ese lugar con un paisaje al azar entre los que el usuario puede usar. Sin `lat`/`lon`: el favorito más antiguo. Sin favoritos: al azar. |
 | `GET /app/mapa/t/{token}/{modo}/f/{favorito}` | con sesión | Ese favorito (id de `LugarFavorito`), con su paisaje. Si no es del usuario, 404. Ignora `lat`/`lon`. |
 | `GET /lively/m/{token}/{modo}` | live wallpaper | El fondo de un favorito con el mapa del teléfono. Token permanente del enlace Lively del favorito (no el de vista). |
 
@@ -181,6 +181,9 @@ renueva la vista guiándose por `expira_at`.
   nombre del lugar). Tampoco el lugar que el servidor resolvió por su cuenta.
   Ojo: un favorito creado sin nombre antes de esta versión puede tener como
   título sus coordenadas con 2 decimales. Los nuevos se llaman «Mi lugar N».
+- `?momento=` (segundos Unix, de 1900 a 2100) dibuja los astros de otro momento en
+  las tres rutas del mapa de la app; roto o fuera de rango se ignora y va a la hora.
+  El clima no cambia: es siempre el de ahora. El refresco lo conserva.
 - La ubicación actual que la app manda en `?lat&lon` sí vuelve en el refresco,
   porque ya iba en esa URL. Si es un favorito, el 302 la saca de la URL.
 - En el mapa del invitado, el lugar aproximado (por la cookie o por IP) sí

@@ -62,6 +62,8 @@ class _UserMapTabState extends State<UserMapTab>
   int? _favoriteId; // null: «Mi ubicación» u otro lugar explorado
   String? _placeName; // el lugar explorado; null: «Mi ubicación»
   RoundedLocation? _location;
+  // El cielo de otro momento, solo para el lugar explorado; null: ahora.
+  DateTime? _moment;
   MapMode _mode = MapMode.basico;
   bool _ready = false;
   bool _saving = false;
@@ -116,11 +118,20 @@ class _UserMapTabState extends State<UserMapTab>
       _favoriteId = null;
       _placeName = null;
       _location = location;
+      _moment = null;
     });
   }
 
-  void _selectFavorite(Favorite favorite) =>
-      setState(() => _favoriteId = favorite.id);
+  void _selectFavorite(Favorite favorite) => setState(() {
+        _favoriteId = favorite.id;
+        _moment = null;
+      });
+
+  /// Vuelve al cielo de ahora en el mismo lugar.
+  void _backToNow() => setState(() {
+        _moment = null;
+        _mapVersion++;
+      });
 
   /// Otro lugar, buscado o por coordenadas: se ve en el mapa y, si el
   /// usuario quiere, se guarda en sus favoritos.
@@ -131,6 +142,9 @@ class _UserMapTabState extends State<UserMapTab>
       _favoriteId = null;
       _placeName = place.name;
       _location = place.location;
+      // Otro momento en el mismo lugar no cambia la URL base: hay que recargar.
+      if (place.moment != _moment) _mapVersion++;
+      _moment = place.moment;
     });
     if (place.save) await _saveCurrentPlace(title: place.name);
   }
@@ -147,6 +161,7 @@ class _UserMapTabState extends State<UserMapTab>
       _mode,
       favoriteId: _favoriteId,
       location: _location,
+      moment: _moment == null ? null : _moment!.millisecondsSinceEpoch ~/ 1000,
       ratio: ratio,
     );
   }
@@ -356,6 +371,11 @@ class _UserMapTabState extends State<UserMapTab>
             ],
           ),
         ),
+        if (_moment case final moment?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            child: _MomentChip(moment: moment, onNow: _backToNow),
+          ),
         Expanded(
           child: MapWebView(
             target: _ready
@@ -741,6 +761,55 @@ class _RemoveDialog extends StatelessWidget {
           child: const Text('Quitar'),
         ),
       ],
+    );
+  }
+}
+
+/// El momento que se está viendo cuando no es ahora, con la vuelta al
+/// presente y el recordatorio de que el clima es el de hoy.
+class _MomentChip extends StatelessWidget {
+  const _MomentChip({required this.moment, required this.onNow});
+
+  final DateTime moment;
+  final VoidCallback onNow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: _cardBackground,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: _accentCyan.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.event_rounded, size: 16, color: _accentCyan),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                  text: momentLabel(moment),
+                  style: const TextStyle(color: _accentCyan, fontWeight: FontWeight.w600),
+                ),
+                const TextSpan(text: ' · el clima es el de hoy'),
+              ]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _secondaryTextColor, fontSize: 12.5),
+            ),
+          ),
+          TextButton(
+            onPressed: onNow,
+            style: TextButton.styleFrom(
+              foregroundColor: _accentCyan,
+              visualDensity: VisualDensity.compact,
+            ),
+            child: const Text('Volver a ahora'),
+          ),
+        ],
+      ),
     );
   }
 }
