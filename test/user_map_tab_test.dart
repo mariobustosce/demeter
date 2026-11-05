@@ -432,10 +432,14 @@ void main() {
       await tester.tap(find.byTooltip('Explorar otro lugar'));
       await frames(tester);
       await tester.enterText(find.byType(TextField), 'Viña');
+      await tester.pump();
+      // Mientras busca, la flecha es un spinner.
+      expect(find.byTooltip('Buscar'), findsNothing);
       await tester.pump(const Duration(milliseconds: 450));
       await frames(tester);
 
       expect(find.text('Viña del Mar, Valparaíso, Chile'), findsOneWidget);
+      expect(find.byTooltip('Buscar'), findsOneWidget);
       await tester.tap(find.text('Viña del Mar, Valparaíso, Chile'));
       await frames(tester);
       expect(find.text('-33.02 · -71.55'), findsOneWidget);

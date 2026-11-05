@@ -77,6 +77,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
 
   _Mode _mode = _Mode.search;
   bool _searching = false;
+  bool _suggesting = false;
   List<PlaceResult>? _results;
   String? _error;
   PlaceResult? _chosen;
@@ -102,9 +103,17 @@ class _ExploreSheetState extends State<_ExploreSheet> {
     _debounce?.cancel();
     if (text.trim().length < 3) {
       _asked++;
-      if (_results != null && !_searching) setState(() => _results = null);
+      if ((_results != null || _suggesting) && !_searching) {
+        setState(() {
+          _results = null;
+          _suggesting = false;
+        });
+      }
       return;
     }
+    // El spinner aparece ya mientras se espera la pausa: así se nota que va a
+    // buscar.
+    if (!_suggesting) setState(() => _suggesting = true);
     _debounce = Timer(_pause, () => _suggest(text));
   }
 
@@ -121,6 +130,8 @@ class _ExploreSheetState extends State<_ExploreSheet> {
       });
     } catch (e) {
       debugPrint('Explorar: el autocompletado falló (${e.runtimeType}).');
+    } finally {
+      if (mounted && ticket == _asked) setState(() => _suggesting = false);
     }
   }
 
@@ -132,6 +143,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
     FocusScope.of(context).unfocus();
     setState(() {
       _searching = true;
+      _suggesting = false;
       _error = null;
       _chosen = null;
     });
@@ -371,7 +383,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
         decoration: _decoration(
           hint: 'Ciudad o lugar, ej.: Valparaíso, Chile',
           prefix: Icons.location_city_rounded,
-          suffix: _searching
+          suffix: _searching || _suggesting
               ? const Padding(
                   padding: EdgeInsets.all(14),
                   child: SizedBox.square(
