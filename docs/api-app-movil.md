@@ -473,9 +473,11 @@ Rutas anteriores a la app nueva: responden `{status: "success", …}` con `data`
 | Ruta | Cuerpo | Respuesta |
 |---|---|---|
 | `GET /api/user/charts` | — | `{status, data: [Carta]}`, de la más nueva a la más vieja |
-| `POST /api/user/charts` | `{titulo (máx. 200), birth_date: "AAAA-MM-DD" (no futura), birth_time: "HH:MM", birth_lat (-90 a 90), birth_lon (-180 a 180), timezone}` | **201** `{success, message, data: {carta_astral: Carta, chart_data}}`. **409** `{success: false, message, existing_chart}` si ya hay una con esa fecha, hora y lugar. **422** `{success: false, errors}` (también una fecha en otro formato o una zona que no existe). **500** `{success: false, message}` si el cálculo falla |
-| `GET /api/user/charts/{id}` | — | `{status, data: {carta_astral: Carta, planetary_positions, houses, aspects, firmamento: Firmamento}}`. Si la carta se calculó con un motor anterior, se recalcula antes de responder (`firmamento.motor` sube) |
+| `POST /api/user/charts` | `{titulo (máx. 200), birth_date: "AAAA-MM-DD" (no futura), birth_time: "HH:MM", birth_lat (-90 a 90), birth_lon (-180 a 180), timezone}` | **201** `{success, message, data: {carta_astral: Carta, chart_data, firmamento, notas: [], nota_ia_costo}}`. **409** `{success: false, message, existing_chart}` si ya hay una con esa fecha, hora y lugar. **422** `{success: false, errors}` (también una fecha en otro formato o una zona que no existe). **500** `{success: false, message}` si el cálculo falla |
+| `GET /api/user/charts/{id}` | — | `{status, data: {carta_astral: Carta, planetary_positions, houses, aspects, firmamento: Firmamento, notas: [NotaFirmamento], nota_ia_costo}}`. Si la carta se calculó con un motor anterior, se recalcula antes de responder (`firmamento.motor` sube) |
 | `PATCH /api/user/charts/{id}/zona` | `{timezone}` (nombre IANA; un desfase fijo da 422) | `{success, message, data: <igual que el detalle>}`. Cambia la zona y recalcula: la hora local anotada no cambia. **404** si no es suya. Throttle 10/min |
+| `POST /api/user/charts/{id}/notas` | `{contenido}` (máx. 250) | **201** `{success, nota: NotaFirmamento}`. **422** si viene vacía o larga; **404** si no es suya. Throttle 20/min |
+| `POST /api/user/charts/{id}/notas/ia` | — | **201** `{success, nuevo_balance, nota: NotaFirmamento}` con `es_ia: true`: la lectura de la IA sobre el firmamento, que cobra `nota_ia_costo` (20) de polvo estelar después de que el proveedor responde. **403** `{success: false, error, insufficient_coins: true, nuevo_balance}` sin saldo; **502** `{success: false, error, nuevo_balance}` si el proveedor falla, sin cobrar; **404** si no es suya. Throttle 5/min |
 | `GET /api/user/zona?lat&lon&fecha&hora` | — | `{success, timezone, desfase (s), rotulo ("UTC−04:00"), horario_verano}`: la zona IANA del punto y el desfase que regía esa fecha y hora (por defecto hoy a las 12:00). Throttle 30/min |
 | `DELETE /api/user/charts/{id}` | — | `{success, message}`; **404** `{success: false, message}` |
 | `GET /api/user/history?page=` | — | `{status, data: <paginador>}`: 15 por página, `data.data` es la lista de `Consulta` |
@@ -546,6 +548,8 @@ Rutas anteriores a la app nueva: responden `{status: "success", …}` con `data`
     label?}` o `null`.
   - `orbes` y `clases_orbe`: la tabla de orbes por aspecto y clase de cuerpo,
     para la sección «Cómo se calculó».
+- `NotaFirmamento`: `{id, contenido, es_ia, created_at}`. La lista va de la más
+  nueva a la más vieja; las de la IA (`es_ia`) son largas y traen saltos de línea.
 - `Consulta`: `{id, pregunta, respuesta, fuente, modelo_ia, desde_cache,
   carta_astral_id, carta_astral: {titulo, sun_degree, moon_degree, asc_degree,
   mc_degree} | null, contexto_astronomico, created_at}`. Sin IP ni lugar.

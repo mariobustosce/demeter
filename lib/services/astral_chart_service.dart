@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import '../config/app_config.dart';
 import '../models/carta.dart';
 import '../models/firmamento.dart';
 import 'api_client.dart';
+import 'coin_balance.dart';
 
 class AstralChartService {
   AstralChartService({ApiClient? api}) : _apiOverride = api;
@@ -38,6 +40,23 @@ class AstralChartService {
     final detalle = FirmamentoDetalle.fromJson(body['data']) ??
         (throw const ApiException('Respuesta inesperada del servidor.'));
     return (detalle: detalle, message: apiMessage(body));
+  }
+
+  /// POST /api/user/charts/{id}/notas: una nota propia (250 como máximo).
+  Future<NotaFirmamento> agregarNota(int id, String contenido) async {
+    final body = jsonMap(await _api.post('/user/charts/$id/notas', body: {'contenido': contenido}));
+    return NotaFirmamento.fromJson(body['nota']) ??
+        (throw const ApiException('Respuesta inesperada del servidor.'));
+  }
+
+  /// POST /api/user/charts/{id}/notas/ia: la lectura de la IA, que cobra
+  /// polvo estelar. Pone al día [coinBalance]. Sin saldo lanza
+  /// [InsufficientCoinsException]; si el proveedor falla (502) no cobra.
+  Future<NotaFirmamento> notaIA(int id) async {
+    final body = jsonMap(await _api.post('/user/charts/$id/notas/ia', timeout: kOracleTimeout));
+    updateCoinBalance(body['nuevo_balance']);
+    return NotaFirmamento.fromJson(body['nota']) ??
+        (throw const ApiException('Respuesta inesperada del servidor.'));
   }
 
   /// GET /api/user/zona: la zona IANA del lugar y el desfase que regía esa

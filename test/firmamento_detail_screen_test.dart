@@ -5,6 +5,7 @@ import 'package:demeter/models/firmamento.dart';
 import 'package:demeter/screens/firmamento_detail_screen.dart';
 import 'package:demeter/services/api_client.dart';
 import 'package:demeter/services/astral_chart_service.dart';
+import 'package:demeter/services/coin_balance.dart';
 import 'package:demeter/widgets/firmamento/anticolision.dart';
 import 'package:demeter/widgets/firmamento/rueda_natal.dart';
 import 'package:flutter/material.dart';
@@ -298,5 +299,144 @@ void main() {
     await frames(tester);
 
     expect(find.text('Ese firmamento no existe.'), findsOneWidget);
+  });
+
+  group('notas y lectura IA', () {
+    late List<http.Request> pedidos;
+    late http.Response Function(http.Request) responder;
+
+    AstralChartService service() => AstralChartService(
+          api: ApiClient(
+            baseUrl: 'https://windowsdemeter.com/api',
+            httpClient: MockClient((req) async {
+              pedidos.add(req);
+              return responder(req);
+            }),
+          ),
+        );
+
+    setUp(() {
+      pedidos = [];
+      coinBalance.value = 100;
+    });
+
+    Future<void> abrir(WidgetTester tester, {List<NotaFirmamento> notas = const []}) async {
+      await pantallaAlta(tester);
+      await tester.pumpWidget(MaterialApp(
+        home: FirmamentoDetailScreen(
+          cartaId: 3,
+          inicial: FirmamentoDetalle(firmamento: _firmamento(), notas: notas, notaIaCosto: 20),
+          service: service(),
+        ),
+      ));
+      await frames(tester);
+    }
+
+    test('el detalle trae las notas y el costo', () {
+      final d = FirmamentoDetalle.fromJson({
+        'firmamento': _fixture['firmamento'],
+        'notas': [
+          {'id': 2, 'contenido': 'Lectura', 'es_ia': true, 'created_at': '2026-11-05T10:00:00.000000Z'},
+          {'id': 1, 'contenido': 'Mía', 'es_ia': false, 'created_at': '2026-11-04T10:00:00.000000Z'},
+        ],
+        'nota_ia_costo': 20,
+      })!;
+      expect(d.notas.map((n) => n.esIa), [true, false]);
+      expect(d.notas.first.creada, isNotNull);
+      expect(d.notaIaCosto, 20);
+    });
+
+    testWidgets('van justo debajo de la rueda, con las notas que trae el detalle', (tester) async {
+      await abrir(tester, notas: const [
+        NotaFirmamento(id: 1, contenido: 'Una lectura del cielo', esIa: true),
+        NotaFirmamento(id: 2, contenido: 'Mirar Venus'),
+      ]);
+
+      expect(find.text('🔮 Lectura IA'), findsOneWidget);
+      expect(find.text('Mirar Venus'), findsOneWidget);
+      expect(find.text('🔮 Nota astrológica IA · 20 ✨'), findsOneWidget);
+      final yRueda = tester.getTopLeft(find.byType(RuedaNatal)).dy;
+      final yNotas = tester.getTopLeft(find.text('Notas')).dy;
+      final yDominantes = tester.getTopLeft(find.text('Dominantes')).dy;
+      expect(yNotas, greaterThan(yRueda));
+      expect(yNotas, lessThan(yDominantes));
+    });
+
+    testWidgets('agregar una nota la manda y la pone arriba', (tester) async {
+      responder = (_) => http.Response(
+            jsonEncode({
+              'success': true,
+              'nota': {'id': 9, 'contenido': 'Venus en exilio', 'es_ia': false, 'created_at': null},
+            }),
+            201,
+            headers: _json,
+          );
+      await abrir(tester);
+      expect(find.text('Aún no hay notas en este firmamento.'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('nota-agregar')));
+      await tester.pump();
+      await tester.enterText(find.byKey(const ValueKey('nota-texto')), '  Venus en exilio ');
+      await tester.tap(find.byKey(const ValueKey('nota-guardar')));
+      await frames(tester);
+
+      expect(pedidos.single.url.path, '/api/user/charts/3/notas');
+      expect(jsonDecode(pedidos.single.body), {'contenido': 'Venus en exilio'});
+      expect(find.text('Venus en exilio'), findsOneWidget);
+      expect(find.text('Aún no hay notas en este firmamento.'), findsNothing);
+      expect(find.byKey(const ValueKey('nota-texto')), findsNothing);
+    });
+
+    testWidgets('la nota IA pide confirmar el cobro y pone al día el saldo', (tester) async {
+      responder = (_) => http.Response(
+            jsonEncode({
+              'success': true,
+              'nuevo_balance': 80,
+              'nota': {'id': 10, 'contenido': 'Una lectura del cielo', 'es_ia': true},
+            }),
+            201,
+            headers: _json,
+          );
+      await abrir(tester);
+
+      await tester.tap(find.byKey(const ValueKey('nota-ia')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('cuesta 20 de polvo estelar'), findsOneWidget);
+      await tester.tap(find.text('Generar'));
+      await frames(tester);
+
+      expect(pedidos.single.method, 'POST');
+      expect(pedidos.single.url.path, '/api/user/charts/3/notas/ia');
+      expect(find.text('🔮 Lectura IA'), findsOneWidget);
+      expect(find.text('Una lectura del cielo'), findsOneWidget);
+      expect(coinBalance.value, 80);
+    });
+
+    testWidgets('cancelar la nota IA no manda nada', (tester) async {
+      await abrir(tester);
+      await tester.tap(find.byKey(const ValueKey('nota-ia')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(pedidos, isEmpty);
+    });
+
+    testWidgets('si el proveedor falla muestra el mensaje y no agrega nada', (tester) async {
+      responder = (_) => http.Response(
+            jsonEncode({'success': false, 'error': 'No se pudo generar la nota.', 'nuevo_balance': 100}),
+            502,
+            headers: _json,
+          );
+      await abrir(tester);
+      await tester.tap(find.byKey(const ValueKey('nota-ia')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Generar'));
+      await frames(tester);
+
+      expect(find.text('No se pudo generar la nota.'), findsOneWidget);
+      expect(find.text('🔮 Lectura IA'), findsNothing);
+      expect(coinBalance.value, 100);
+    });
   });
 }

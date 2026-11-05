@@ -98,18 +98,53 @@ class Firmamento {
 /// Un firmamento con su carta: lo que devuelven el detalle, el alta (201) y
 /// el cambio de zona.
 class FirmamentoDetalle {
-  const FirmamentoDetalle({required this.firmamento, this.carta});
+  const FirmamentoDetalle({required this.firmamento, this.carta, this.notas = const [], this.notaIaCosto});
 
   final Firmamento firmamento;
 
   /// Para la cabecera (fecha, hora y lugar): no se lee nada más de ella.
   final Carta? carta;
 
+  /// La más nueva primero, como las da el servidor.
+  final List<NotaFirmamento> notas;
+
+  /// Polvo estelar que cuesta la nota IA; null si el servidor no lo dice.
+  final int? notaIaCosto;
+
   static FirmamentoDetalle? fromJson(Object? data) {
     if (data is! Map) return null;
     final f = Firmamento.fromJson(data['firmamento']);
     if (f == null) return null;
-    return FirmamentoDetalle(firmamento: f, carta: Carta.fromJson(data['carta_astral']));
+    final notas = data['notas'];
+    return FirmamentoDetalle(
+      firmamento: f,
+      carta: Carta.fromJson(data['carta_astral']),
+      notas: notas is List ? notas.map(NotaFirmamento.fromJson).whereType<NotaFirmamento>().toList() : const [],
+      notaIaCosto: _i(data['nota_ia_costo']),
+    );
+  }
+}
+
+/// Una nota del firmamento: propia o la lectura de la IA.
+class NotaFirmamento {
+  const NotaFirmamento({required this.id, required this.contenido, this.esIa = false, this.creada});
+
+  final int id;
+  final String contenido;
+  final bool esIa;
+  final DateTime? creada;
+
+  static NotaFirmamento? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final id = _i(json['id']);
+    if (id == null) return null;
+    final creada = json['created_at'];
+    return NotaFirmamento(
+      id: id,
+      contenido: _s(json['contenido']),
+      esIa: json['es_ia'] == true,
+      creada: creada is String ? DateTime.tryParse(creada)?.toLocal() : null,
+    );
   }
 }
 

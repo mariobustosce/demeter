@@ -5,6 +5,7 @@ import '../models/firmamento.dart';
 import '../services/api_client.dart';
 import '../services/astral_chart_service.dart';
 import '../widgets/firmamento/aspectos.dart';
+import '../widgets/firmamento/notas.dart';
 import '../widgets/firmamento/rueda_natal.dart';
 import '../widgets/firmamento/tablas.dart';
 
@@ -37,6 +38,8 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
 
   Firmamento? _f;
   Carta? _carta;
+  List<NotaFirmamento> _notas = const [];
+  int? _costoIa;
   String? _error;
   bool _recalculando = false;
 
@@ -49,6 +52,8 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
     super.initState();
     _carta = widget.inicial?.carta ?? widget.carta;
     _f = widget.inicial?.firmamento;
+    _notas = widget.inicial?.notas ?? const [];
+    _costoIa = widget.inicial?.notaIaCosto;
     if (_f == null) _cargar();
   }
 
@@ -60,6 +65,8 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
       setState(() {
         _f = d.firmamento;
         _carta = d.carta ?? _carta;
+        _notas = d.notas;
+        _costoIa = d.notaIaCosto ?? _costoIa;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -100,6 +107,16 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
     final rueda = _Seccion(
       child: RuedaNatal(firmamento: f, cuerpo: _cuerpo, par: _par, onTocar: _tocarCuerpo),
     );
+    final notas = _Seccion(
+      titulo: 'Notas',
+      child: NotasFirmamento(
+        cartaId: widget.cartaId,
+        notas: _notas,
+        costoIa: _costoIa,
+        service: _service,
+        onNota: (n) => setState(() => _notas = [n, ..._notas]),
+      ),
+    );
     final dominantes = _Seccion(titulo: 'Dominantes', subtitulo: 'lo que se mira primero', child: _dominantes(f));
     final posiciones = _Seccion(titulo: 'Posiciones', child: _posiciones(f));
     final aspectos = _Seccion(
@@ -130,7 +147,7 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: rueda),
+              Expanded(child: Column(children: [rueda, notas])),
               const SizedBox(width: 16),
               Expanded(child: dominantes),
             ],
@@ -146,12 +163,12 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
         ],
       );
     }
-    // Notas y lectura IA: quedan para un prompt futuro.
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
         ...cabecera,
         rueda,
+        notas,
         dominantes,
         posiciones,
         aspectos,
