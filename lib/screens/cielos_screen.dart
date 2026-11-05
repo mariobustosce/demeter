@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/observatorio.dart';
 import '../services/api_client.dart';
-import '../services/coin_balance.dart';
 import '../services/observatorio_service.dart';
 import '../widgets/firmamento/tablas.dart';
 import '../widgets/observatorio/wmo.dart';
+import '../widgets/saldo_polvo.dart';
 
 /// Cielos: el clima de ahora de cada favorito y su Estudio del cielo.
 class CielosScreen extends StatefulWidget {
@@ -141,23 +141,7 @@ class _CielosScreenState extends State<CielosScreen> {
             Text('Cielos', style: TextStyle(color: kCian, fontWeight: FontWeight.bold, fontSize: 24)),
           ],
         ),
-        actions: [
-          ValueListenableBuilder<int?>(
-            valueListenable: coinBalance,
-            builder: (context, coins, _) => coins == null
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Center(
-                      child: Text(
-                        '$coins ✨',
-                        semanticsLabel: '$coins de Polvo Estelar',
-                        style: const TextStyle(color: kCian, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-          ),
-        ],
+        actions: const [SaldoPolvo()],
       ),
       body: RefreshIndicator(
         color: kCian,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/carta.dart';
 import '../services/astral_chart_service.dart';
 import '../widgets/firmamento/tablas.dart';
+import '../widgets/saldo_polvo.dart';
 import 'create_astral_chart_screen.dart';
 import 'firmamento_detail_screen.dart';
 
@@ -192,6 +193,7 @@ class _AstralChartsScreenState extends State<AstralChartsScreen> {
             ),
           ],
         ),
+        actions: const [SaldoPolvo()],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0),

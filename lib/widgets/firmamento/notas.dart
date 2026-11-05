@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import '../../models/firmamento.dart';
 import '../../services/api_client.dart';
 import '../../services/astral_chart_service.dart';
+import '../../services/coin_balance.dart';
 import '../consultas/cns_basicos.dart' show haceTiempo;
 import 'tablas.dart';
+
+/// Lo que cobra la web por la nota IA (`CartaAstralNotaController::COSTO_IA`),
+/// para avisarlo aunque el servidor no mande `nota_ia_costo`.
+const kCostoNotaIa = 20;
 
 /// Notas y lectura IA del firmamento, como en la web: «+ Agregar» abre el
 /// campo (250 como máximo) y la nota IA cobra polvo estelar tras confirmar.
@@ -24,7 +29,7 @@ class NotasFirmamento extends StatefulWidget {
   final AstralChartService service;
   final ValueChanged<NotaFirmamento> onNota;
 
-  /// Lo que cuesta la nota IA; sin él, el botón va sin precio.
+  /// Lo que cuesta la nota IA; sin él se avisa el de la web, [kCostoNotaIa].
   final int? costoIa;
 
   @override
@@ -62,8 +67,11 @@ class _NotasFirmamentoState extends State<NotasFirmamento> {
     }
   }
 
+  int get _costo => widget.costoIa ?? kCostoNotaIa;
+
   Future<void> _pedirIA() async {
-    final costo = widget.costoIa;
+    final costo = _costo;
+    final saldo = coinBalance.value;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -71,10 +79,10 @@ class _NotasFirmamentoState extends State<NotasFirmamento> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Nota astrológica IA', style: TextStyle(color: kTexto)),
         content: Text(
-          costo == null || costo == 0
+          costo == 0
               ? 'Generar una nota astrológica con IA sobre este firmamento. ¿Continuar?'
-              : 'Generar una nota astrológica con IA sobre este firmamento cuesta $costo de polvo '
-                  'estelar. ¿Continuar?',
+              : 'Generar una nota astrológica con IA sobre este firmamento te gastará $costo de '
+                  'polvo estelar ✨.${saldo == null ? '' : ' Tienes $saldo ✨.'} ¿Continuar?',
           style: const TextStyle(color: kTextoTenue, fontSize: 14),
         ),
         actions: [
@@ -111,7 +119,7 @@ class _NotasFirmamentoState extends State<NotasFirmamento> {
 
   @override
   Widget build(BuildContext context) {
-    final costo = widget.costoIa;
+    final costo = _costo;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -129,12 +137,19 @@ class _NotasFirmamentoState extends State<NotasFirmamento> {
               key: const ValueKey('nota-ia'),
               texto: _consultando
                   ? '🔮 Consultando…'
-                  : '🔮 Nota astrológica IA${costo == null || costo == 0 ? '' : ' · $costo ✨'}',
+                  : '🔮 Nota astrológica IA${costo == 0 ? '' : ' · $costo ✨'}',
               color: kVioleta,
               onTap: _consultando ? null : _pedirIA,
             ),
           ],
         ),
+        if (costo > 0) ...[
+          const SizedBox(height: 6),
+          Text(
+            'La nota IA te gastará $costo de polvo estelar ✨.',
+            style: const TextStyle(color: kTextoTenue, fontSize: 11.5),
+          ),
+        ],
         const SizedBox(height: 12),
         if (_abierto) ...[
           TextField(

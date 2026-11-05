@@ -401,7 +401,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('nota-ia')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('cuesta 20 de polvo estelar'), findsOneWidget);
+      expect(find.textContaining('te gastará 20 de polvo estelar ✨. Tienes 100 ✨.'), findsOneWidget);
       await tester.tap(find.text('Generar'));
       await frames(tester);
 
@@ -410,6 +410,24 @@ void main() {
       expect(find.text('🔮 Lectura IA'), findsOneWidget);
       expect(find.text('Una lectura del cielo'), findsOneWidget);
       expect(coinBalance.value, 80);
+      // El saldo de la barra, como en Cielos, ya bajó.
+      expect(find.text('80 ✨'), findsOneWidget);
+    });
+
+    testWidgets('sin costo del servidor avisa igual los 20 y muestra el saldo', (tester) async {
+      await pantallaAlta(tester);
+      await tester.pumpWidget(MaterialApp(
+        home: FirmamentoDetailScreen(
+          cartaId: 3,
+          inicial: FirmamentoDetalle(firmamento: _firmamento()),
+          service: service(),
+        ),
+      ));
+      await frames(tester);
+
+      expect(find.text('100 ✨'), findsOneWidget);
+      expect(find.text('🔮 Nota astrológica IA · 20 ✨'), findsOneWidget);
+      expect(find.text('La nota IA te gastará 20 de polvo estelar ✨.'), findsOneWidget);
     });
 
     testWidgets('cancelar la nota IA no manda nada', (tester) async {

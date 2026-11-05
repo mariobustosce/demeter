@@ -8,6 +8,7 @@ import '../widgets/firmamento/aspectos.dart';
 import '../widgets/firmamento/notas.dart';
 import '../widgets/firmamento/rueda_natal.dart';
 import '../widgets/firmamento/tablas.dart';
+import '../widgets/saldo_polvo.dart';
 
 /// Detalle de un firmamento. Se arma solo con `data.firmamento`; de la carta
 /// se toman la fecha, la hora y el lugar para la cabecera.
@@ -94,6 +95,7 @@ class _FirmamentoDetailScreenState extends State<FirmamentoDetailScreen> {
         elevation: 0,
         foregroundColor: kTexto,
         title: const Text('Firmamento', style: TextStyle(color: kCian, fontWeight: FontWeight.bold)),
+        actions: const [SaldoPolvo()],
       ),
       body: f == null
           ? (_error == null
