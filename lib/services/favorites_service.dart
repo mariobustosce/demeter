@@ -20,15 +20,20 @@ class FavoritesService {
   }
 
   /// Guarda el lugar con 2 decimales (unos 1 km), los mismos que lleva la URL
-  /// de «Mi ubicación». Sin título, el servidor le pone el nombre del lugar.
+  /// de «Mi ubicación». Sin [title], el servidor le pone el nombre del lugar.
   /// [existing] es `true` si ese punto ya estaba guardado. El tope de
   /// favoritos llega como [ValidationException] con el mensaje del servidor.
   Future<({Favorite favorite, bool existing})> save(
-    RoundedLocation location,
-  ) async {
+    RoundedLocation location, {
+    String? title,
+  }) async {
     final body = jsonMap(await _api.post(
       '/favoritos',
-      body: {'lat': location.lat, 'lon': location.lon},
+      body: {
+        'lat': location.lat,
+        'lon': location.lon,
+        if (title != null && title.trim().isNotEmpty) 'titulo': title.trim(),
+      },
     ));
     return (favorite: _favorite(body), existing: body['existente'] == true);
   }

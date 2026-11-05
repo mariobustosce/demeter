@@ -37,7 +37,8 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
 
-  // MAPA, CONSULTAS y OBSERVATORIO. Las alertas están en el menú de la cuenta.
+  // DEMETER (el mapa), CONSULTAS y OBSERVATORIO. Las alertas están en el menú
+  // de la cuenta.
   late final TabController _tabs = TabController(length: 3, vsync: this)
     ..addListener(_onTabChanged);
   bool _mapActive = true;
@@ -277,7 +278,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
               letterSpacing: 0.5,
             ),
             tabs: const [
-              Tab(text: "MAPA"),
+              Tab(text: "DEMETER"),
               Tab(text: "CONSULTAS"),
               Tab(text: "OBSERVATORIO"),
             ],

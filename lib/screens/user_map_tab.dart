@@ -7,6 +7,8 @@ import '../services/favorites_service.dart';
 import '../services/location_service.dart';
 import '../services/map_urls.dart';
 import '../services/map_view_service.dart';
+import '../services/place_search.dart';
+import '../widgets/explore_place_sheet.dart';
 import '../widgets/favorite_landscape_sheet.dart';
 import '../widgets/location_prompt.dart';
 import '../widgets/map_mode_menu.dart';
@@ -23,12 +25,19 @@ const int _maxTitleLength = 60;
 
 enum _FavoriteAction { landscape, rename, remove }
 
-/// Pestaña MAPA con sesión: el mapa del token de vista, con un botón que
+/// Pestaña DEMETER con sesión: el mapa del token de vista, con un botón que
 /// despliega «Mi ubicación» y los favoritos. «Mi ubicación» se guarda con ★;
 /// un favorito tiene sus opciones en ⋮ (el que se ve, junto al botón; los
-/// demás, en la lista): paisaje, nombre y quitar.
+/// demás, en la lista): paisaje, nombre y quitar. Con 🔍 se explora otro
+/// lugar, buscado o por coordenadas, y se puede guardar como favorito.
 class UserMapTab extends StatefulWidget {
-  const UserMapTab({super.key, required this.active, this.footer, this.favorites});
+  const UserMapTab({
+    super.key,
+    required this.active,
+    this.footer,
+    this.favorites,
+    this.placeSearch,
+  });
 
   /// `false` con otra pestaña a la vista: el WebView sale del árbol para que
   /// no siga animando oculto.
@@ -38,6 +47,7 @@ class UserMapTab extends StatefulWidget {
   final Widget? footer;
 
   final FavoritesService? favorites;
+  final PlaceSearchService? placeSearch;
 
   @override
   State<UserMapTab> createState() => _UserMapTabState();
@@ -49,7 +59,8 @@ class _UserMapTabState extends State<UserMapTab>
       widget.favorites ?? FavoritesService();
 
   List<Favorite> _favorites = const [];
-  int? _favoriteId; // null: «Mi ubicación»
+  int? _favoriteId; // null: «Mi ubicación» u otro lugar explorado
+  String? _placeName; // el lugar explorado; null: «Mi ubicación»
   RoundedLocation? _location;
   MapMode _mode = MapMode.basico;
   bool _ready = false;
@@ -103,12 +114,26 @@ class _UserMapTabState extends State<UserMapTab>
     if (location == null && _favoriteId != null) return;
     setState(() {
       _favoriteId = null;
+      _placeName = null;
       _location = location;
     });
   }
 
   void _selectFavorite(Favorite favorite) =>
       setState(() => _favoriteId = favorite.id);
+
+  /// Otro lugar, buscado o por coordenadas: se ve en el mapa y, si el
+  /// usuario quiere, se guarda en sus favoritos.
+  Future<void> _explore() async {
+    final place = await showExplorePlaceSheet(context, search: widget.placeSearch);
+    if (!mounted || place == null) return;
+    setState(() {
+      _favoriteId = null;
+      _placeName = place.name;
+      _location = place.location;
+    });
+    if (place.save) await _saveCurrentPlace(title: place.name);
+  }
 
   void _setMode(MapMode mode) {
     setState(() => _mode = mode);
@@ -135,10 +160,10 @@ class _UserMapTabState extends State<UserMapTab>
     ));
   }
 
-  /// Guarda «Mi ubicación» con los mismos 2 decimales del mapa y pasa a verla
-  /// como favorito. El tope lo pone el servidor y su mensaje se muestra tal
-  /// cual.
-  Future<void> _saveCurrentPlace() async {
+  /// Guarda el lugar que se ve («Mi ubicación» o el explorado) con los mismos
+  /// 2 decimales del mapa y pasa a verlo como favorito. El tope lo pone el
+  /// servidor y su mensaje se muestra tal cual.
+  Future<void> _saveCurrentPlace({String? title}) async {
     if (_saving) return;
     setState(() => _saving = true);
     try {
@@ -149,7 +174,7 @@ class _UserMapTabState extends State<UserMapTab>
         return;
       }
 
-      final saved = await _favoritesService.save(location);
+      final saved = await _favoritesService.save(location, title: title ?? _placeName);
       if (!mounted) return;
       final favorite = saved.favorite;
       setState(() {
@@ -297,12 +322,20 @@ class _UserMapTabState extends State<UserMapTab>
                   child: _PlaceMenu(
                     favorites: _favorites,
                     shown: shown,
+                    exploredName: favoriteId == null ? _placeName : null,
                     enabled: _ready,
+                    onExplore: _explore,
                     onMyLocation: _selectMyLocation,
                     onFavorite: _selectFavorite,
                     onOptions: _openActions,
                   ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              _RoundButton(
+                icon: Icons.travel_explore_rounded,
+                tooltip: 'Explorar otro lugar',
+                onPressed: _ready ? _explore : null,
               ),
               const SizedBox(width: 8),
               if (shown != null)
@@ -338,22 +371,27 @@ class _UserMapTabState extends State<UserMapTab>
   }
 }
 
-/// El lugar que se ve, en un botón que despliega «Mi ubicación» y los
-/// favoritos, como la web en el teléfono. Una fila de chips no cabía junto al
-/// modo: se veían uno y medio, y el resto quedaba fuera de la pantalla.
+/// El lugar que se ve, en un botón que despliega «Explorar otro lugar», «Mi
+/// ubicación» y los favoritos, como la web en el teléfono. Una fila de chips
+/// no cabía junto al modo: se veían uno y medio, y el resto quedaba fuera de
+/// la pantalla.
 class _PlaceMenu extends StatelessWidget {
   const _PlaceMenu({
     required this.favorites,
     required this.shown,
+    required this.exploredName,
     required this.enabled,
+    required this.onExplore,
     required this.onMyLocation,
     required this.onFavorite,
     required this.onOptions,
   });
 
   final List<Favorite> favorites;
-  final Favorite? shown; // null: «Mi ubicación»
+  final Favorite? shown; // null: «Mi ubicación» o el lugar explorado
+  final String? exploredName; // null: «Mi ubicación»
   final bool enabled;
+  final VoidCallback onExplore;
   final VoidCallback onMyLocation;
   final ValueChanged<Favorite> onFavorite;
   final ValueChanged<Favorite> onOptions;
@@ -361,6 +399,7 @@ class _PlaceMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = this.shown;
+    final explored = shown == null ? exploredName : null;
     // Cada opción lleva lo que hace al elegirla.
     return PopupMenuButton<VoidCallback>(
       tooltip: 'Favoritos',
@@ -370,10 +409,34 @@ class _PlaceMenu extends StatelessWidget {
       position: PopupMenuPosition.under,
       constraints: const BoxConstraints(minWidth: 220, maxWidth: 320),
       itemBuilder: (_) => [
+        PopupMenuItem(
+          value: onExplore,
+          child: const Row(
+            children: [
+              Icon(Icons.travel_explore_rounded, size: 18, color: _accentCyan),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Explorar otro lugar…',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _accentCyan, fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        if (explored != null)
+          _item(
+            icon: Icons.place_rounded,
+            label: explored,
+            selected: true,
+            action: () {},
+          ),
         _item(
           icon: Icons.my_location_rounded,
           label: 'Mi ubicación',
-          selected: shown == null,
+          selected: shown == null && explored == null,
           action: onMyLocation,
         ),
         const PopupMenuDivider(),
@@ -406,14 +469,18 @@ class _PlaceMenu extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              shown == null ? Icons.my_location_rounded : Icons.star_rounded,
+              shown != null
+                  ? Icons.star_rounded
+                  : explored != null
+                      ? Icons.place_rounded
+                      : Icons.my_location_rounded,
               color: enabled ? _accentCyan : _secondaryTextColor,
               size: 16,
             ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                shown?.title ?? 'Mi ubicación',
+                shown?.title ?? explored ?? 'Mi ubicación',
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: _textColor,

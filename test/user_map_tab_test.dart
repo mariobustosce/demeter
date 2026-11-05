@@ -5,6 +5,7 @@ import 'package:demeter/services/api_client.dart';
 import 'package:demeter/services/landscape_thumbnails.dart';
 import 'package:demeter/services/location_service.dart';
 import 'package:demeter/services/map_view_service.dart';
+import 'package:demeter/services/place_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -303,5 +304,121 @@ void main() {
     await tester.tap(find.byTooltip('Favoritos'));
     await frames(tester);
     expect(find.text('Playa Brava'), findsOneWidget);
+  });
+
+  group('explorar otro lugar', () {
+    PlaceSearchService nominatim() => PlaceSearchService(
+          httpClient: MockClient((_) async => http.Response(
+                jsonEncode([
+                  {'name': 'Valparaíso', 'display_name': 'Valparaíso, Chile', 'lat': '-33.0472', 'lon': '-71.6127'},
+                ]),
+                200,
+                headers: _json,
+              )),
+        );
+
+    Future<void> openWithSearch(WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: UserMapTab(active: true, placeSearch: nominatim())),
+      ));
+      await frames(tester);
+    }
+
+    Future<void> findValparaiso(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Explorar otro lugar'));
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), 'Valparaíso');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await frames(tester);
+      await tester.tap(find.text('Valparaíso, Chile'));
+      await frames(tester);
+    }
+
+    testWidgets('se busca, se ve en el mapa con su nombre y se puede guardar con ☆',
+        (tester) async {
+      server.saveResponse = (
+        status: 201,
+        body: {
+          'success': true,
+          'existente': false,
+          'favorito': {'id': 9, 'titulo': 'Valparaíso', 'lat': -33.05, 'lon': -71.61},
+        },
+      );
+      await openWithSearch(tester);
+      await findValparaiso(tester);
+
+      await tester.tap(find.text('Ver en el mapa'));
+      await frames(tester);
+
+      expect(loaded().last.path, '/app/mapa/t/v1/basico');
+      expect(loaded().last.queryParameters['lat'], '-33.05');
+      expect(loaded().last.queryParameters['lon'], '-71.61');
+      expect(find.text('Valparaíso'), findsOneWidget);
+      expect(server.requests.where((r) => r.method == 'POST' && r.url.path == '/api/favoritos'), isEmpty);
+
+      // El ☆ guarda el lugar explorado con su nombre.
+      await tester.tap(find.byTooltip('Guardar en favoritos'));
+      await frames(tester);
+      final saved = server.last('POST', '/api/favoritos');
+      expect(jsonDecode(saved.body), {'lat': -33.05, 'lon': -71.61, 'titulo': 'Valparaíso'});
+      expect(loaded().last.path, '/app/mapa/t/v1/basico/f/9');
+    });
+
+    testWidgets('«Guardar» lo deja en favoritos con el nombre que se escribió', (tester) async {
+      server.saveResponse = (
+        status: 201,
+        body: {
+          'success': true,
+          'existente': false,
+          'favorito': {'id': 9, 'titulo': 'Puerto', 'lat': -33.05, 'lon': -71.61},
+        },
+      );
+      await openWithSearch(tester);
+      await findValparaiso(tester);
+
+      await tester.enterText(find.widgetWithText(TextField, 'Nombre del lugar'), 'Puerto');
+      await tester.tap(find.text('Guardar'));
+      await frames(tester);
+
+      final saved = server.last('POST', '/api/favoritos');
+      expect(jsonDecode(saved.body), {'lat': -33.05, 'lon': -71.61, 'titulo': 'Puerto'});
+      expect(find.text('★ Guardado: Puerto'), findsOneWidget);
+      expect(loaded().last.path, '/app/mapa/t/v1/basico/f/9');
+    });
+
+    testWidgets('por coordenadas, con coma decimal', (tester) async {
+      await openWithSearch(tester);
+      await tester.tap(find.byTooltip('Explorar otro lugar'));
+      await frames(tester);
+      await tester.tap(find.text('Coordenadas'));
+      await frames(tester);
+
+      await tester.enterText(find.widgetWithText(TextField, 'Latitud'), '-41,4693');
+      await tester.enterText(find.widgetWithText(TextField, 'Longitud'), '-72,9424');
+      await tester.tap(find.text('Usar estas coordenadas'));
+      await frames(tester);
+      await tester.tap(find.text('Ver en el mapa'));
+      await frames(tester);
+
+      expect(loaded().last.queryParameters['lat'], '-41.47');
+      expect(loaded().last.queryParameters['lon'], '-72.94');
+      expect(find.text('-41.47, -72.94'), findsOneWidget);
+    });
+
+    testWidgets('coordenadas fuera de rango no se usan', (tester) async {
+      await openWithSearch(tester);
+      await tester.tap(find.byTooltip('Explorar otro lugar'));
+      await frames(tester);
+      await tester.tap(find.text('Coordenadas'));
+      await frames(tester);
+
+      await tester.enterText(find.widgetWithText(TextField, 'Latitud'), '95');
+      await tester.enterText(find.widgetWithText(TextField, 'Longitud'), '10');
+      await tester.tap(find.text('Usar estas coordenadas'));
+      await frames(tester);
+
+      expect(find.textContaining('La latitud va de -90 a 90'), findsOneWidget);
+      expect(find.text('Ver en el mapa'), findsNothing);
+    });
   });
 }
