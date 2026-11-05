@@ -57,4 +57,59 @@ void main() {
 
     expect(search.search('Lima'), throwsA(isA<http.ClientException>()));
   });
+
+  test('autocompleta con Photon desde 3 letras, sin repetir el mismo km', () async {
+    late http.Request sent;
+    final search = PlaceSearchService(
+      httpClient: MockClient((req) async {
+        sent = req;
+        return http.Response(
+          jsonEncode({
+            'features': [
+              {
+                'geometry': {'coordinates': [-71.5518, -33.0245]},
+                'properties': {'name': 'Viña del Mar', 'state': 'Valparaíso', 'country': 'Chile'},
+              },
+              {
+                'geometry': {'coordinates': [-71.5521, -33.0249]},
+                'properties': {'name': 'Viña del Mar', 'country': 'Chile'},
+              },
+              {
+                'geometry': {'coordinates': [10, 95]},
+                'properties': {'name': 'Fuera'},
+              },
+              {
+                'geometry': {'coordinates': [-70.6, -33.4]},
+                'properties': {'city': 'Santiago', 'country': 'Chile'},
+              },
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+
+    final results = await search.suggest(' Viña ');
+
+    expect(sent.url.host, 'photon.komoot.io');
+    expect(sent.url.queryParameters['q'], 'Viña');
+    expect(sent.headers['User-Agent'], contains('windowsdemeter.com'));
+    expect([for (final r in results) r.detail], ['Viña del Mar, Valparaíso, Chile', 'Santiago, Chile']);
+    expect(results.first.location.latParam, '-33.02');
+  });
+
+  test('con menos de 3 letras Photon no sale a la red; si falla, lanza', () async {
+    var calls = 0;
+    final search = PlaceSearchService(
+      httpClient: MockClient((_) async {
+        calls++;
+        return http.Response('', 500);
+      }),
+    );
+
+    expect(await search.suggest('Vi'), isEmpty);
+    expect(calls, 0);
+    expect(search.suggest('Viña'), throwsA(isA<http.ClientException>()));
+  });
 }

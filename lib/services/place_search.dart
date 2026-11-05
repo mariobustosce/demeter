@@ -17,8 +17,10 @@ class PlaceResult {
   final RoundedLocation location;
 }
 
-/// Busca ciudades y lugares con Nominatim (OpenStreetMap). Su política no
-/// deja autocompletar: se busca solo cuando el usuario lo pide.
+/// Busca ciudades y lugares en OpenStreetMap. Mientras se escribe, con Photon
+/// ([suggest]), que está hecho para autocompletar; al pedirlo, con Nominatim
+/// ([search]), cuya política no deja autocompletar. A los dos solo les llega
+/// el texto escrito.
 class PlaceSearchService {
   PlaceSearchService({http.Client? httpClient}) : _http = httpClient;
 
@@ -57,6 +59,58 @@ class PlaceSearchService {
       }
     }
     return results;
+  }
+
+  /// Sugerencias de Photon (komoot) para lo que se va escribiendo: hasta 5,
+  /// desde 3 letras. Lanza si no hay red o Photon falla.
+  Future<List<PlaceResult>> suggest(String query) async {
+    final q = query.trim();
+    if (q.length < 3) return const [];
+    final uri = Uri.https('photon.komoot.io', '/api/', {'q': q, 'limit': '5'});
+    final headers = {'User-Agent': kNominatimUserAgent};
+    final client = _http;
+    final response = await (client == null
+            ? http.get(uri, headers: headers)
+            : client.get(uri, headers: headers))
+        .timeout(kRequestTimeout);
+    if (response.statusCode != 200) {
+      throw http.ClientException('Photon respondió ${response.statusCode}', uri);
+    }
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    final features = data is Map ? data['features'] : null;
+    if (features is! List) return const [];
+    final results = <PlaceResult>[];
+    for (final feature in features) {
+      final result = _parsePhoton(feature);
+      if (result != null && !results.any((r) => r.location == result.location)) {
+        results.add(result);
+      }
+    }
+    return results;
+  }
+
+  /// Un `Feature` de GeoJSON: `coordinates` va como [lon, lat].
+  static PlaceResult? _parsePhoton(Object? feature) {
+    if (feature is! Map) return null;
+    final geometry = feature['geometry'];
+    final props = feature['properties'];
+    if (geometry is! Map || props is! Map) return null;
+    final coords = geometry['coordinates'];
+    if (coords is! List || coords.length < 2) return null;
+    final lon = coords[0], lat = coords[1];
+    if (lat is! num || lon is! num || lat.abs() > 90 || lon.abs() > 180) return null;
+    String campo(String k) => props[k] is String ? (props[k] as String).trim() : '';
+    final name = campo('name').isNotEmpty ? campo('name') : campo('city');
+    if (name.isEmpty) return null;
+    final partes = <String>[];
+    for (final p in [name, campo('city'), campo('state'), campo('country')]) {
+      if (p.isNotEmpty && !partes.contains(p)) partes.add(p);
+    }
+    return PlaceResult(
+      name: name,
+      detail: partes.join(', '),
+      location: RoundedLocation(lat.toDouble(), lon.toDouble()),
+    );
   }
 
   static PlaceResult? _parse(Object? item) {

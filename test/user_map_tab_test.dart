@@ -307,11 +307,23 @@ void main() {
   });
 
   group('explorar otro lugar', () {
+    // Photon para lo que se va escribiendo; Nominatim al apretar buscar.
     PlaceSearchService nominatim() => PlaceSearchService(
-          httpClient: MockClient((_) async => http.Response(
-                jsonEncode([
-                  {'name': 'Valparaíso', 'display_name': 'Valparaíso, Chile', 'lat': '-33.0472', 'lon': '-71.6127'},
-                ]),
+          httpClient: MockClient((req) async => http.Response(
+                jsonEncode(req.url.host == 'photon.komoot.io'
+                    ? {
+                        'features': [
+                          {
+                            'geometry': {
+                              'coordinates': [-71.5518, -33.0245],
+                            },
+                            'properties': {'name': 'Viña del Mar', 'state': 'Valparaíso', 'country': 'Chile'},
+                          },
+                        ],
+                      }
+                    : [
+                        {'name': 'Valparaíso', 'display_name': 'Valparaíso, Chile', 'lat': '-33.0472', 'lon': '-71.6127'},
+                      ]),
                 200,
                 headers: _json,
               )),
@@ -384,6 +396,36 @@ void main() {
       expect(jsonDecode(saved.body), {'lat': -33.05, 'lon': -71.61, 'titulo': 'Puerto'});
       expect(find.text('★ Guardado: Puerto'), findsOneWidget);
       expect(loaded().last.path, '/app/mapa/t/v1/basico/f/9');
+    });
+
+    testWidgets('mientras se escribe autocompleta y al elegir llena las coordenadas', (tester) async {
+      await openWithSearch(tester);
+      await tester.tap(find.byTooltip('Explorar otro lugar'));
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), 'Viña');
+      await tester.pump(const Duration(milliseconds: 450));
+      await frames(tester);
+
+      expect(find.text('Viña del Mar, Valparaíso, Chile'), findsOneWidget);
+      await tester.tap(find.text('Viña del Mar, Valparaíso, Chile'));
+      await frames(tester);
+      expect(find.text('-33.02 · -71.55'), findsOneWidget);
+
+      await tester.tap(find.text('Ver en el mapa'));
+      await frames(tester);
+      expect(loaded().last.queryParameters['lat'], '-33.02');
+      expect(loaded().last.queryParameters['lon'], '-71.55');
+    });
+
+    testWidgets('con menos de 3 letras no autocompleta', (tester) async {
+      await openWithSearch(tester);
+      await tester.tap(find.byTooltip('Explorar otro lugar'));
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), 'Vi');
+      await tester.pump(const Duration(milliseconds: 450));
+      await frames(tester);
+
+      expect(find.textContaining('Viña del Mar'), findsNothing);
     });
 
     testWidgets('por coordenadas, con coma decimal', (tester) async {

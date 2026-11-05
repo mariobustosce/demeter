@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -64,8 +66,15 @@ class _ExploreSheetState extends State<_ExploreSheet> {
   String? _error;
   PlaceResult? _chosen;
 
+  // Autocompletar: se espera a que deje de escribir y solo vale la respuesta
+  // de lo último que escribió.
+  static const _pause = Duration(milliseconds: 400);
+  Timer? _debounce;
+  int _asked = 0;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _query.dispose();
     _lat.dispose();
     _lon.dispose();
@@ -73,9 +82,37 @@ class _ExploreSheetState extends State<_ExploreSheet> {
     super.dispose();
   }
 
+  void _typed(String text) {
+    _debounce?.cancel();
+    if (text.trim().length < 3) {
+      _asked++;
+      if (_results != null && !_searching) setState(() => _results = null);
+      return;
+    }
+    _debounce = Timer(_pause, () => _suggest(text));
+  }
+
+  /// Las sugerencias mientras escribe. Si fallan no se avisa: queda la
+  /// búsqueda con Enter.
+  Future<void> _suggest(String text) async {
+    final ticket = ++_asked;
+    try {
+      final results = await widget.search.suggest(text);
+      if (!mounted || ticket != _asked) return;
+      setState(() {
+        _results = results;
+        _error = null;
+      });
+    } catch (e) {
+      debugPrint('Explorar: el autocompletado falló (${e.runtimeType}).');
+    }
+  }
+
   Future<void> _search() async {
     final query = _query.text.trim();
     if (query.length < 2 || _searching) return;
+    _debounce?.cancel();
+    final ticket = ++_asked;
     FocusScope.of(context).unfocus();
     setState(() {
       _searching = true;
@@ -84,7 +121,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
     });
     try {
       final results = await widget.search.search(query);
-      if (!mounted) return;
+      if (!mounted || ticket != _asked) return;
       setState(() => _results = results);
     } catch (e) {
       debugPrint('Explorar: la búsqueda falló (${e.runtimeType}).');
@@ -276,6 +313,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
         autofocus: true,
         textInputAction: TextInputAction.search,
         textCapitalization: TextCapitalization.words,
+        onChanged: _typed,
         onSubmitted: (_) => _search(),
         style: const TextStyle(color: _textColor),
         decoration: _decoration(
