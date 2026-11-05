@@ -55,7 +55,7 @@ Con un build nuevo en un **Android real**. El `app-release.apk` de `build/` es d
 - **Fondo de la rueda.** Es el color plano de la app, no el degradado radial de la web, porque el prompt prohíbe gradientes nuevos.
 - **Ver el aspecto en la rueda.** Al tocar un aspecto en la lista o en la grilla se resalta en la rueda, pero la pantalla no sube hasta ella. En tablet la rueda queda a la vista; en móvil hay que subir.
 - **Saldo tras exportar.** La respuesta es el archivo, sin `saldo`, así que la app pide `GET /api/me`. Si esa llamada falla, el saldo se pone al día en la próxima carga.
-- **Notas y lectura IA del firmamento** (sección 11): queda el hueco. El cobro de la nota IA no se implementó, como pide el prompt.
+- **Notas y lectura IA del firmamento** (sección 11): se hicieron después, a pedido (2026-11-05), bajo la rueda. Hubo que sumar la API (`POST /api/user/charts/{id}/notas` y `…/notas/ia`) en el servidor, con el mismo cobro de 20 que la web.
 
 ## Textos nuevos (para la traducción)
 
