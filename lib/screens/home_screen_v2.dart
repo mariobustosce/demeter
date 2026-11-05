@@ -37,8 +37,8 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
 
-  // DEMETER (el mapa), CONSULTAS y OBSERVATORIO. Las alertas están en el menú
-  // de la cuenta.
+  // Los tres pilares, en el orden del portal: DEMETER (el mapa), OBSERVATORIO
+  // y CONSULTAS. Las alertas están en el menú de la cuenta.
   late final TabController _tabs = TabController(length: 3, vsync: this)
     ..addListener(_onTabChanged);
   bool _mapActive = true;
@@ -274,17 +274,20 @@ class _HomeScreenV2State extends State<HomeScreenV2>
             labelPadding: const EdgeInsets.symmetric(horizontal: 2),
             labelStyle: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 9.5,
+              fontSize: 10.5,
               letterSpacing: 0.5,
             ),
             tabs: const [
-              Tab(text: "DEMETER"),
-              Tab(text: "CONSULTAS"),
-              Tab(text: "OBSERVATORIO"),
+              Tab(child: _TabLabel("DEMETER")),
+              Tab(child: _TabLabel("OBSERVATORIO")),
+              Tab(child: _TabLabel("CONSULTAS")),
             ],
           ),
         ),
         centerTitle: true,
+        // El switch usa todo el ancho entre la cuenta y el fondo animado.
+        leadingWidth: 48,
+        titleSpacing: 4,
         actions: [
           // El fondo animado solo existe en Android.
           if (Platform.isAndroid)
@@ -312,12 +315,25 @@ class _HomeScreenV2State extends State<HomeScreenV2>
           physics: const NeverScrollableScrollPhysics(), // Evita conflicto con gestos
           children: [
             UserMapTab(active: _mapActive, footer: _bannerSlot()),
-            const OracleConsultationsScreen(),
             const ObservatorioTab(),
+            const OracleConsultationsScreen(),
           ],
         ),
       ),
     );
+  }
+}
+
+/// El nombre de un pilar: si en un teléfono angosto no cabe, se achica en vez
+/// de cortarse («OBSERVATORIO» es el más largo).
+class _TabLabel extends StatelessWidget {
+  const _TabLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(fit: BoxFit.scaleDown, child: Text(text));
   }
 }
 
