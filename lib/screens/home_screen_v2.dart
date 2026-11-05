@@ -14,7 +14,7 @@ import '../widgets/wallpaper_sheet.dart';
 import 'alerts_screen.dart';
 import 'observatorio_tab.dart';
 import 'landscapes_screen.dart';
-import 'oracle_consultations_screen.dart';
+import 'consultas_screen.dart';
 import 'profile_screen.dart'; // Importar perfil
 import 'user_map_tab.dart';
 
@@ -316,7 +316,7 @@ class _HomeScreenV2State extends State<HomeScreenV2>
           children: [
             UserMapTab(active: _mapActive, footer: _bannerSlot()),
             const ObservatorioTab(),
-            const OracleConsultationsScreen(),
+            const ConsultasScreen(),
           ],
         ),
       ),
