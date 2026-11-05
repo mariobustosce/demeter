@@ -6,6 +6,7 @@ import 'package:demeter/services/landscape_thumbnails.dart';
 import 'package:demeter/services/location_service.dart';
 import 'package:demeter/services/map_view_service.dart';
 import 'package:demeter/services/place_search.dart';
+import 'package:demeter/widgets/coordinate_picker_map.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -437,7 +438,11 @@ void main() {
 
       await tester.enterText(find.widgetWithText(TextField, 'Latitud'), '-41,4693');
       await tester.enterText(find.widgetWithText(TextField, 'Longitud'), '-72,9424');
+      await tester.ensureVisible(find.text('Usar estas coordenadas'));
       await tester.tap(find.text('Usar estas coordenadas'));
+      await frames(tester);
+      // Con el mini mapa arriba, los botones quedan más abajo.
+      await tester.ensureVisible(find.text('Ver en el mapa'));
       await frames(tester);
       await tester.tap(find.text('Ver en el mapa'));
       await frames(tester);
@@ -445,6 +450,25 @@ void main() {
       expect(loaded().last.queryParameters['lat'], '-41.47');
       expect(loaded().last.queryParameters['lon'], '-72.94');
       expect(find.text('-41.47, -72.94'), findsOneWidget);
+    });
+
+    testWidgets('tocar el mini mapa llena la latitud y la longitud', (tester) async {
+      await openWithSearch(tester);
+      await tester.tap(find.byTooltip('Explorar otro lugar'));
+      await frames(tester);
+      await tester.tap(find.text('Coordenadas'));
+      await frames(tester);
+
+      expect(find.byType(CoordinatePickerMap), findsOneWidget);
+      await tester.tap(find.byType(CoordinatePickerMap));
+      await frames(tester);
+
+      // El centro del mundo que se ve al abrir: 10° N, 40° O.
+      final lat = tester.widget<TextField>(find.widgetWithText(TextField, 'Latitud')).controller!.text;
+      final lon = tester.widget<TextField>(find.widgetWithText(TextField, 'Longitud')).controller!.text;
+      expect(double.parse(lat), closeTo(10, 1));
+      expect(double.parse(lon), closeTo(-40, 1));
+      expect(find.text('Ver en el mapa'), findsOneWidget);
     });
 
     testWidgets('coordenadas fuera de rango no se usan', (tester) async {

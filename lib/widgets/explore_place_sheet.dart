@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/place_search.dart';
+import 'coordinate_picker_map.dart';
 
 const _sheetBackground = Color(0xFF0F172A);
 const _fieldBackground = Color(0xFF111C33);
@@ -155,6 +157,13 @@ class _ExploreSheetState extends State<_ExploreSheet> {
       detail: 'Coordenadas',
       location: location,
     ));
+  }
+
+  /// Un toque en el mini mapa llena la latitud y la longitud y elige el punto.
+  void _picked(LatLng p) {
+    _lat.text = p.latitude.toStringAsFixed(4);
+    _lon.text = p.longitude.toStringAsFixed(4);
+    _useCoordinates();
   }
 
   /// Acepta la coma decimal del teclado en español.
@@ -356,7 +365,17 @@ class _ExploreSheetState extends State<_ExploreSheet> {
   List<Widget> _coordinateFields() {
     const keyboard = TextInputType.numberWithOptions(decimal: true, signed: true);
     final formatters = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,\-]'))];
+    final lat = _number(_lat.text);
+    final lon = _number(_lon.text);
+    final point = lat != null && lon != null && lat.abs() <= 90 && lon.abs() <= 180 ? LatLng(lat, lon) : null;
     return [
+      CoordinatePickerMap(point: point, onPicked: _picked),
+      const SizedBox(height: 6),
+      const Text(
+        'Toca el mapa para elegir el punto, o escribe las coordenadas.',
+        style: TextStyle(color: _secondaryTextColor, fontSize: 12),
+      ),
+      const SizedBox(height: 10),
       Row(
         children: [
           Expanded(
@@ -365,6 +384,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
               keyboardType: keyboard,
               inputFormatters: formatters,
               textInputAction: TextInputAction.next,
+              onChanged: (_) => setState(() {}),
               style: const TextStyle(color: _textColor),
               decoration: _decoration(hint: 'Latitud', prefix: Icons.swap_vert_rounded),
             ),
@@ -376,6 +396,7 @@ class _ExploreSheetState extends State<_ExploreSheet> {
               keyboardType: keyboard,
               inputFormatters: formatters,
               textInputAction: TextInputAction.done,
+              onChanged: (_) => setState(() {}),
               onSubmitted: (_) => _useCoordinates(),
               style: const TextStyle(color: _textColor),
               decoration: _decoration(hint: 'Longitud', prefix: Icons.swap_horiz_rounded),
