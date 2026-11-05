@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -76,6 +77,8 @@ class _AlertsScreenState extends State<AlertsScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.addObserver(this);
     // Un aviso que llega con la pantalla abierta aparece en la lista.
     _received = _push.received.listen((_) => _loadAvisos());
+    // Ya se están viendo aquí: fuera de la barra de notificaciones.
+    unawaited(_push.clearShown());
     _start();
   }
 
@@ -280,6 +283,13 @@ class _AlertsScreenState extends State<AlertsScreen> with WidgetsBindingObserver
     }
   }
 
+  /// Los ajustes de Android, donde se eligen el sonido o, en Xiaomi, las
+  /// notificaciones flotantes y en la pantalla de bloqueo.
+  Future<void> _openNotificationSettings() async {
+    if (await _push.openSettings()) return;
+    _notify('Ábrelos en los ajustes del teléfono: Apps → WindowsDemeter → Notificaciones.');
+  }
+
   void _notify(String message) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.hideCurrentSnackBar();
@@ -294,6 +304,14 @@ class _AlertsScreenState extends State<AlertsScreen> with WidgetsBindingObserver
         backgroundColor: _background,
         foregroundColor: _textColor,
         title: const Text('Alertas', style: TextStyle(fontSize: 18)),
+        actions: [
+          if (_push.available && Platform.isAndroid)
+            IconButton(
+              tooltip: 'Cómo llegan al teléfono',
+              icon: const Icon(Icons.tune_rounded, color: _accentCyan),
+              onPressed: _openNotificationSettings,
+            ),
+        ],
       ),
       body: _body(),
     );

@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:demeter/models/aviso.dart';
 import 'package:demeter/services/api_client.dart';
 import 'package:demeter/services/push_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _json = {'content-type': 'application/json; charset=utf-8'};
 const _fcm = 'fcm-token-de-prueba-con-mas-de-20-caracteres';
@@ -129,5 +131,55 @@ void main() {
     expect(payload, {'aviso_id': 'a1', 'tipo': 'sismo', 'titulo': 'Sismo', 'texto': 'M 6,1'});
     expect(payload.keys, isNot(contains('lat')));
     expect(Aviso.fromPush(payload)?.id, 'a1');
+  });
+
+  group('como una app de mensajes', () {
+    PushService withPermission(List<String> calls, {required bool granted}) => PushService(
+          available: true,
+          hasPermission: () async {
+            calls.add('has');
+            return granted;
+          },
+          requestPermission: () async {
+            calls.add('request');
+            return true;
+          },
+        );
+
+    test('al entrar se pide el permiso una sola vez', () async {
+      SharedPreferences.setMockInitialValues({});
+      final calls = <String>[];
+      final push = withPermission(calls, granted: false);
+
+      await push.askPermissionOnce();
+      await push.askPermissionOnce();
+
+      expect(calls, ['has', 'request']);
+    });
+
+    test('con el permiso ya dado no pregunta', () async {
+      SharedPreferences.setMockInitialValues({});
+      final calls = <String>[];
+
+      await withPermission(calls, granted: true).askPermissionOnce();
+
+      expect(calls, ['has']);
+    });
+
+    test('la notificación sale flotante, con sonido y agrupada', () {
+      final details = PushService.avisoDetails(
+        const Aviso(id: 'a1', type: 'lluvia', title: 'Lluvia mañana', text: '30 mm en Casa'),
+      );
+
+      expect(details.channelId, kAlertsChannelId);
+      expect(details.importance, Importance.high);
+      expect(details.priority, Priority.high);
+      expect(details.category, AndroidNotificationCategory.message);
+      expect(details.visibility, NotificationVisibility.private);
+      expect(details.playSound, isTrue);
+      expect(details.enableVibration, isTrue);
+      expect(details.groupKey, isNotNull);
+      expect(details.ticker, 'Lluvia mañana');
+    });
   });
 }

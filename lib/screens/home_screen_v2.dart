@@ -75,9 +75,10 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     WidgetsBinding.instance.addObserver(this);
     _loadBannerAd();
 
-    // Con sesión: el teléfono se registra para el push (sin pedir permiso),
-    // y un aviso que llega o se toca se refleja aquí.
-    unawaited(_push.register());
+    // Con sesión: el teléfono se registra para el push y, la primera vez, se
+    // pide el permiso para que los avisos lleguen como notificaciones. Un
+    // aviso que llega o se toca se refleja aquí.
+    unawaited(_push.register().then((_) => _push.askPermissionOnce()));
     unawaited(_refreshUnreadAlerts());
     // Compras de Play que el servidor todavía no confirmó.
     unawaited(BillingService.instance.recover());

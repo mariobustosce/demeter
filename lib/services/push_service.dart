@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/aviso.dart';
 import 'api_client.dart';
@@ -24,6 +25,13 @@ const String _channelDescription =
 // por eso R8 no lo borra.
 const String _icon = 'ic_notificacion';
 const Color _color = Color(0xFF4FD0E7);
+
+// Las que arma la app van juntas, con un resumen, como los chats.
+const String _groupKey = 'com.windowsdemeter.avisos';
+const int _summaryId = 0;
+
+// Que ya se pidió el permiso al entrar: no se vuelve a pedir solo.
+const String _askedKey = 'push_permiso_pedido';
 
 /// Notificaciones push de los avisos, con FCM.
 ///
@@ -205,6 +213,32 @@ class PushService {
     }
   }
 
+  /// La primera vez que se entra con sesión se pide el permiso, como las apps
+  /// de mensajes: sin él los avisos no llegan al teléfono. Si lo niega, no se
+  /// vuelve a preguntar solo (queda el botón de Alertas). Nunca lanza.
+  Future<void> askPermissionOnce() async {
+    if (!available) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_askedKey) ?? false) return;
+      if (!await hasPermission()) await requestPermission();
+      await prefs.setBool(_askedKey, true);
+    } catch (e) {
+      debugPrint('Push: no se pidió el permiso al entrar (${e.runtimeType}).');
+    }
+  }
+
+  /// Al abrir Alertas se quitan las notificaciones a la vista, como al abrir
+  /// un chat. Nunca lanza.
+  Future<void> clearShown() async {
+    if (!available) return;
+    try {
+      await _local.cancelAll();
+    } catch (e) {
+      debugPrint('Push: no se quitaron las notificaciones (${e.runtimeType}).');
+    }
+  }
+
   /// Si el teléfono deja mostrar los avisos, sin preguntar nada.
   Future<bool> hasPermission() async {
     if (!available) return false;
@@ -233,7 +267,8 @@ class PushService {
   AndroidFlutterLocalNotificationsPlugin? get _android =>
       _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
-  /// Con la app abierta: la notificación se arma con `data`, como el push.
+  /// Con la app abierta: la notificación se arma con `data`, como el push, y
+  /// sale como la de un mensaje: flotante, con sonido y vibración.
   Future<void> _showInForeground(RemoteMessage message) async {
     final aviso = Aviso.fromPush(message.data);
     if (aviso == null) return;
@@ -245,25 +280,86 @@ class PushService {
         body: aviso.text,
         payload: jsonEncode(pushPayload(aviso)),
         notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            kAlertsChannelId,
-            _channelName,
-            channelDescription: _channelDescription,
-            importance: Importance.high,
-            priority: Priority.high,
-            // Si el usuario oculta lo sensible en la pantalla de bloqueo, no
-            // se ve el lugar.
-            visibility: NotificationVisibility.private,
-            icon: _icon,
-            color: _color,
-            styleInformation: BigTextStyleInformation(aviso.text),
+          android: avisoDetails(aviso),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBanner: true,
+            presentSound: true,
+            presentBadge: true,
           ),
-          iOS: const DarwinNotificationDetails(),
         ),
       );
+      await _showSummary();
     } catch (e) {
       debugPrint('Push: no se mostró el aviso (${e.runtimeType}).');
     }
+  }
+
+  /// La de un aviso en Android.
+  @visibleForTesting
+  static AndroidNotificationDetails avisoDetails(Aviso aviso) => AndroidNotificationDetails(
+        kAlertsChannelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.message,
+        // Si el usuario oculta lo sensible en la pantalla de bloqueo, no se
+        // ve el lugar.
+        visibility: NotificationVisibility.private,
+        icon: _icon,
+        color: _color,
+        ticker: aviso.title,
+        showWhen: true,
+        playSound: true,
+        enableVibration: true,
+        enableLights: true,
+        ledColor: _color,
+        ledOnMs: 1000,
+        ledOffMs: 2000,
+        groupKey: _groupKey,
+        styleInformation: BigTextStyleInformation(aviso.text, contentTitle: aviso.title),
+      );
+
+  /// Con dos o más avisos a la vista, el resumen que los agrupa («3 avisos
+  /// nuevos»), como los chats. Suena solo el aviso, no el resumen.
+  Future<void> _showSummary() async {
+    final android = _android;
+    if (android == null) return;
+    final active = [
+      for (final n in await android.getActiveNotifications())
+        if (n.groupKey == _groupKey && n.id != _summaryId) n,
+    ];
+    if (active.length < 2) return;
+    final lines = [for (final n in active) n.title ?? ''];
+    final summary = '${active.length} avisos nuevos';
+    await _local.show(
+      id: _summaryId,
+      title: summary,
+      body: lines.join(' · '),
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          kAlertsChannelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.message,
+          visibility: NotificationVisibility.private,
+          icon: _icon,
+          color: _color,
+          groupKey: _groupKey,
+          setAsGroupSummary: true,
+          groupAlertBehavior: GroupAlertBehavior.children,
+          number: active.length,
+          styleInformation: InboxStyleInformation(
+            lines,
+            contentTitle: summary,
+            summaryText: _channelName,
+          ),
+        ),
+      ),
+    );
   }
 
   void _openMessage(RemoteMessage message) => open(message.data);
