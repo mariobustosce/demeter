@@ -11,9 +11,8 @@ import '../services/auth_service.dart';
 import '../services/billing_service.dart';
 import '../services/push_service.dart';
 import '../widgets/wallpaper_sheet.dart';
-import 'alerts_tab.dart';
+import 'alerts_screen.dart';
 import 'observatorio_tab.dart';
-import 'avisos_screen.dart';
 import 'landscapes_screen.dart';
 import 'oracle_consultations_screen.dart';
 import 'profile_screen.dart'; // Importar perfil
@@ -38,12 +37,10 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
 
-  // MAPA, CONSULTAS, OBSERVATORIO y ALERTAS.
-  static const int _alertsTab = 3;
-  late final TabController _tabs = TabController(length: 4, vsync: this)
+  // MAPA, CONSULTAS y OBSERVATORIO. Las alertas están en el menú de la cuenta.
+  late final TabController _tabs = TabController(length: 3, vsync: this)
     ..addListener(_onTabChanged);
   bool _mapActive = true;
-  bool _alertsActive = false;
 
   final PushService _push = PushService.instance;
   StreamSubscription<Aviso>? _received;
@@ -110,20 +107,13 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     }
   }
 
-  /// El WebView del mapa solo está en pantalla con su pestaña a la vista, y
-  /// las alertas se recargan al volver a la suya.
+  /// El WebView del mapa solo está en pantalla con su pestaña a la vista.
   void _onTabChanged() {
     final map = _tabs.index == 0;
-    final alerts = _tabs.index == _alertsTab;
-    if (map != _mapActive || alerts != _alertsActive) {
-      setState(() {
-        _mapActive = map;
-        _alertsActive = alerts;
-      });
-    }
+    if (map != _mapActive) setState(() => _mapActive = map);
   }
 
-  /// El número de avisos sin leer de la pestaña ALERTAS. Nunca lanza.
+  /// El número de avisos sin leer del menú de la cuenta. Nunca lanza.
   Future<void> _refreshUnreadAlerts() async {
     try {
       await AlertsService().list();
@@ -132,20 +122,24 @@ class _HomeScreenV2State extends State<HomeScreenV2>
     }
   }
 
-  /// Abre el aviso de la notificación que tocó el usuario y lo marca leído.
-  /// Al cerrarlo queda en ALERTAS.
+  /// Abre Alertas con el aviso de la notificación que tocó el usuario, que
+  /// se marca leído.
   void _openTappedAviso() {
     final aviso = _push.openedAviso.value;
     if (aviso == null || !mounted) return;
     _push.openedAviso.value = null;
-    _tabs.animateTo(_alertsTab);
+    _openAlerts(opened: aviso);
+  }
+
+  void _openAlerts({Aviso? opened}) {
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => AvisosScreen(opened: aviso),
+      builder: (_) => AlertsScreen(opened: opened, onCreateFavorite: _goCreateFavorite),
     ));
   }
 
   /// Sin favoritos no llegan avisos: al mapa, donde se guarda «Mi ubicación».
   void _goCreateFavorite() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
     _tabs.animateTo(0);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -180,10 +174,19 @@ class _HomeScreenV2State extends State<HomeScreenV2>
         backgroundColor: backgroundColor,
         elevation: 0,
         leading: PopupMenuButton<String>(
-          icon: const Icon(
-            Icons.account_circle_outlined,
-            size: 24,
-            color: secondaryTextColor,
+          // Con avisos sin leer, un punto, como la campana 🔔 de la web.
+          icon: ValueListenableBuilder<int?>(
+            valueListenable: unreadAlerts,
+            builder: (context, unread, _) => Badge(
+              isLabelVisible: unread != null && unread > 0,
+              smallSize: 8,
+              backgroundColor: _unreadColor,
+              child: const Icon(
+                Icons.account_circle_outlined,
+                size: 24,
+                color: secondaryTextColor,
+              ),
+            ),
           ),
           tooltip: "Usuario",
           offset: const Offset(0, 40),
@@ -198,6 +201,8 @@ class _HomeScreenV2State extends State<HomeScreenV2>
                 context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
+            } else if (value == 'alerts') {
+              _openAlerts();
             } else if (value == 'landscapes') {
               Navigator.push(
                 context,
@@ -220,6 +225,10 @@ class _HomeScreenV2State extends State<HomeScreenV2>
                   Text("Ver Perfil", style: TextStyle(color: textColor)),
                 ],
               ),
+            ),
+            const PopupMenuItem(
+              value: 'alerts',
+              child: _AlertsMenuLabel(),
             ),
             const PopupMenuItem(
               value: 'landscapes',
@@ -270,7 +279,6 @@ class _HomeScreenV2State extends State<HomeScreenV2>
               Tab(text: "MAPA"),
               Tab(text: "CONSULTAS"),
               Tab(text: "OBSERVATORIO"),
-              Tab(child: _AlertsTabLabel()),
             ],
           ),
         ),
@@ -304,7 +312,6 @@ class _HomeScreenV2State extends State<HomeScreenV2>
             UserMapTab(active: _mapActive, footer: _bannerSlot()),
             const OracleConsultationsScreen(),
             const ObservatorioTab(),
-            AlertsTab(active: _alertsActive, onCreateFavorite: _goCreateFavorite),
           ],
         ),
       ),
@@ -312,29 +319,36 @@ class _HomeScreenV2State extends State<HomeScreenV2>
   }
 }
 
-/// «ALERTAS» con los avisos sin leer, como la campana 🔔 de la web.
-class _AlertsTabLabel extends StatelessWidget {
-  const _AlertsTabLabel();
+const _unreadColor = Color(0xFFF59E0B);
+
+/// «Alertas» en el menú de la cuenta, con los avisos sin leer.
+class _AlertsMenuLabel extends StatelessWidget {
+  const _AlertsMenuLabel();
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int?>(
       valueListenable: unreadAlerts,
       builder: (context, unread, _) => Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          const Text("ALERTAS"),
+          const Icon(Icons.notifications_outlined, color: accentCyan, size: 20),
+          const SizedBox(width: 10),
+          const Text("Alertas", style: TextStyle(color: textColor)),
           if (unread != null && unread > 0) ...[
-            const SizedBox(width: 3),
+            const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
+                color: _unreadColor,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 unread > 9 ? "9+" : "$unread",
-                style: const TextStyle(color: backgroundColor, fontSize: 8.5),
+                style: const TextStyle(
+                  color: backgroundColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
