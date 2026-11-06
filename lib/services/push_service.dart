@@ -25,6 +25,8 @@ const String _channelDescription =
 // por eso R8 no lo borra.
 const String _icon = 'ic_notificacion';
 const Color _color = Color(0xFF4FD0E7);
+// El icono de la app: está en el manifest, así que tampoco lo borra R8.
+const AndroidBitmap<Object> _logo = DrawableResourceAndroidBitmap('@mipmap/ic_launcher');
 
 // Las que arma la app van juntas, con un resumen, como los chats.
 const String _groupKey = 'com.windowsdemeter.avisos';
@@ -309,6 +311,8 @@ class PushService {
         visibility: NotificationVisibility.private,
         icon: _icon,
         color: _color,
+        // El logo a color, grande, en lugar del icono chico dentro del círculo.
+        largeIcon: _logo,
         ticker: aviso.title,
         showWhen: true,
         playSound: true,
@@ -348,6 +352,7 @@ class PushService {
           visibility: NotificationVisibility.private,
           icon: _icon,
           color: _color,
+          largeIcon: _logo,
           groupKey: _groupKey,
           setAsGroupSummary: true,
           groupAlertBehavior: GroupAlertBehavior.children,

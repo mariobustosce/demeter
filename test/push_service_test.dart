@@ -180,6 +180,9 @@ void main() {
       expect(details.enableVibration, isTrue);
       expect(details.groupKey, isNotNull);
       expect(details.ticker, 'Lluvia mañana');
+      // El logo a color como icono grande.
+      expect(details.largeIcon, isA<DrawableResourceAndroidBitmap>());
+      expect((details.largeIcon! as DrawableResourceAndroidBitmap).data, '@mipmap/ic_launcher');
     });
   });
 }
