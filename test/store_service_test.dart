@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:demeter/services/api_client.dart';
 import 'package:demeter/services/store_service.dart';
+import 'package:demeter/services/tienda_plataforma.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -39,6 +40,23 @@ void main() {
     expect([for (final p in catalog.packages) p.productId], ['polvo_50', 'polvo_100']);
     expect(catalog.packages[1].coins, 100);
     expect(catalog.packages[1].highlight, isTrue);
+  });
+
+  test('en iOS pide los de la App Store, con el app_account_token', () async {
+    final catalog = await StoreService(
+      plataforma: const TiendaAppStore(),
+      api: ApiClient(
+        baseUrl: 'https://windowsdemeter.com/api',
+        httpClient: MockClient((req) async {
+          requests.add(req);
+          return http.Response(jsonEncode(storeCatalogJsonIos()), 200, headers: _json);
+        }),
+      ),
+    ).catalog();
+
+    expect(requests.single.url.queryParameters, {'plataforma': 'ios'});
+    expect(catalog.accountId, kAppAccountToken);
+    expect([for (final p in catalog.packages) p.productId], ['polvo_50', 'polvo_100']);
   });
 
   test('descarta los paquetes que no se venden en Play', () async {

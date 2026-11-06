@@ -1,5 +1,6 @@
-/// Un paquete de polvo estelar que se vende en Google Play. El precio no viene
-/// aquí: se muestra el de Play (`ProductDetails`), no el de la web.
+/// Un paquete de polvo estelar que se vende en Google Play o en la App Store.
+/// El precio no viene aquí: se muestra el de la tienda (`ProductDetails`), no
+/// el de la web.
 class StorePackage {
   final int id;
   final String name;
@@ -9,7 +10,7 @@ class StorePackage {
   final String description;
   final bool highlight;
 
-  /// El producto en Play Console (`polvo_100`…).
+  /// El producto en Play Console o App Store Connect (`polvo_100`…).
   final String productId;
 
   const StorePackage({
@@ -23,10 +24,14 @@ class StorePackage {
     required this.productId,
   });
 
-  /// `null` si no se vende en Play.
-  static StorePackage? fromJson(Object? json) {
+  /// `null` si no se vende en esa tienda. [campoProducto] es
+  /// `google_play_product_id` o `app_store_product_id`.
+  static StorePackage? fromJson(
+    Object? json, {
+    String campoProducto = 'google_play_product_id',
+  }) {
     if (json is! Map) return null;
-    final productId = json['google_play_product_id']?.toString() ?? '';
+    final productId = json[campoProducto]?.toString() ?? '';
     if (productId.isEmpty) return null;
     return StorePackage(
       id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
@@ -41,12 +46,12 @@ class StorePackage {
   }
 }
 
-/// Los paquetes de Play y la cuenta ofuscada que pide el servidor en cada
-/// compra.
+/// Los paquetes de la tienda y la cuenta que pide el servidor en cada compra.
 class StoreCatalog {
   const StoreCatalog({required this.accountId, required this.packages});
 
-  /// Va en `setObfuscatedAccountId`. Se pide de nuevo antes de cada compra.
+  /// `obfuscatedAccountId` en Play, `appAccountToken` en la App Store. Se
+  /// pide de nuevo antes de cada compra.
   final String? accountId;
   final List<StorePackage> packages;
 }

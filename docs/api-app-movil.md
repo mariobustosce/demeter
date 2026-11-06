@@ -19,11 +19,13 @@ API en `https://windowsdemeter.com/api`. Las páginas del WebView cuelgan de
 | `GET/POST/DELETE /api/favoritos/{id}/fondo…` | Bearer | [Live wallpaper](#fondo-animado-live-wallpaper) (`/lively/m/{token}/{modo}`) |
 | `POST/DELETE /api/dispositivos` | Bearer | [Push](#dispositivos-y-push) |
 | `GET/POST /api/avisos…` · `GET/PUT /api/avisos/preferencias` | Bearer | [Avisos](#avisos) |
-| `GET /api/store/packages?plataforma=android` · `POST /api/store/google-play/verificar` | Bearer | [Comprar polvo](#compras-con-google-play) |
+| `GET /api/store/packages?plataforma=android` · `POST /api/store/google-play/verificar` | Bearer | [Comprar polvo en Android](#compras-con-google-play) |
+| `GET /api/store/packages?plataforma=ios` · `POST /api/store/app-store/verificar` | Bearer | [Comprar polvo en iPhone](#compras-con-la-app-store) |
 | `/api/user/profile…` · `/api/user/referral` | Bearer | [Perfil y cuenta](#perfil-y-cuenta) |
 | `/api/user/charts…` · `PATCH /api/user/charts/{id}/zona` · `GET /api/user/zona` · `/api/user/history…` | Bearer | [Cartas e historial](#cartas-astrales-e-historial) |
 | `GET /api/observatorio` · `/api/favoritos/{id}/estudio` · `/api/estudios/{id}…` | Bearer | [Observatorio](#observatorio-y-estudios-del-cielo) |
-| `POST /api/oraculo/consultar` · `POST /api/oraculo/compatibilidad` | Bearer | [Oráculo](#oráculo) |
+| `POST /api/oraculo/consultar` · `POST /api/oraculo/compatibilidad` | Bearer | [Oráculo](#oráculo) (Demeter, Oráculo y Perséfone) |
+| `GET /api/consultas/catalogo` · `GET /api/consultas/contexto` | Bearer | [Consultas](#consultas) |
 
 Las [rutas antiguas](#rutas-antiguas-solo-la-app-publicada) siguen vivas para
 la versión publicada, pero la app nueva no las usa.
@@ -443,7 +445,67 @@ va con `Authorization: Bearer <token de Sanctum>`.
   comprada: la app tiene que consumirla tras el 200.
 - Las compras de los testers de licencias **acreditan polvo de verdad**. El
   servidor solo las marca como de prueba.
-- Si Google la reembolsa después de acreditada, el polvo no se descuenta.
+- Si Google la reembolsa (o la anula por contracargo) después de acreditada, el
+  servidor lo detecta en menos de una hora y **descuenta ese polvo**, hasta dejar
+  el saldo en 0, nunca en negativo. Queda un movimiento `refund` y un aviso
+  (`tipo: "reembolso"`) en `GET /api/avisos`, sin datos de la compra. La app no
+  hace nada: el saldo nuevo llega con `/me` como siempre.
+
+## Compras con la App Store
+
+El iPhone compra el polvo con StoreKit 2 (Apple lo exige para bienes digitales,
+guideline 3.1.1) y **no muestra Mercado Pago ni enlaces a la web**. Los
+paquetes y el polvo son los mismos que en Android. Todo va con
+`Authorization: Bearer <token de Sanctum>`.
+
+### Paquetes
+
+`GET /api/store/packages?plataforma=ios`:
+
+```json
+{ "status": "success",
+  "app_account_token": "xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx",
+  "data": [{ "id": 2, "name": "Popular", "coins": 100, "price_clp": 3490, "currency": "CLP",
+             "icon": "star", "color": "purple", "description": "…", "highlight": false,
+             "app_store_product_id": "polvo_100" }] }
+```
+
+- Productos consumibles en App Store Connect: `polvo_50`, `polvo_100` y
+  `polvo_1000`.
+- **El precio que se muestra es el de la App Store** (`ProductDetails.price`),
+  no `price_clp`.
+- `app_account_token` es un UUID en minúsculas y va **siempre** como
+  `appAccountToken` de la compra. Sin él, o con el de otra cuenta, el servidor
+  la rechaza. Es fijo por usuario mientras no cambie el `APP_KEY`: pedirlo de
+  nuevo antes de cada compra, no guardarlo.
+
+### Verificar una compra
+
+`POST /api/store/app-store/verificar` `{product_id, transaction_id}` (límite
+20/min). `transaction_id` es el `transactionId` de StoreKit 2 (solo dígitos).
+
+| Respuesta | Qué pasó | Qué hace la app |
+|---|---|---|
+| **200** `{success, acreditado: true, pendiente: false, polvo, saldo}` | Acreditada ahora | **Terminar** la transacción (`finish`) y mostrar el saldo |
+| **200** `{success, acreditado: false, pendiente: false, polvo, saldo}` | Ya estaba acreditada (reintento) | **Terminar**. No se suma nada |
+| **422** `{success: false, message}` | Rechazada: paquete que no se vende, transacción que Apple no conoce, de otra app, de otro paquete, de otra cuenta, no consumible o ya reembolsada | **No terminar**. Mostrar `message` |
+| **503** `{success: false, message}` | No se pudo confirmar con Apple: no respondió, fallaron las credenciales o **la respuesta no venía firmada por Apple** | **No terminar**. Reintentar más tarde y mostrar `message` |
+
+- **Solo se termina con 200.** Con 422 o 503 la transacción queda sin terminar,
+  StoreKit la vuelve a entregar (`Transaction.unfinished` / `updates`) y la app
+  la manda de nuevo.
+- No hay 202: el «Ask to Buy» (pendiente) se queda en la app hasta que StoreKit
+  la entregue como comprada.
+- Un mismo `transaction_id` acredita **una sola vez**; repetirlo no pregunta a
+  Apple.
+- El servidor pregunta a producción y, si Apple no conoce la transacción, a
+  sandbox (TestFlight y la revisión de Apple). Las de sandbox **acreditan polvo
+  de verdad** y quedan marcadas como de prueba.
+- Una firma que no llega a la Apple Root CA G3 se trata como 503 y no como 422:
+  no es culpa del usuario y la compra no se pierde.
+- Si Apple la reembolsa, avisa al servidor (*App Store Server Notifications
+  V2*, `REFUND`) y el polvo se descuenta igual que en Google Play: hasta 0, un
+  movimiento `refund` y un aviso `tipo: "reembolso"`. La app no hace nada.
 
 ## Perfil y cuenta
 
@@ -553,16 +615,27 @@ Rutas anteriores a la app nueva: responden `{status: "success", …}` con `data`
     para la sección «Cómo se calculó».
 - `NotaFirmamento`: `{id, contenido, es_ia, created_at}`. La lista va de la más
   nueva a la más vieja; las de la IA (`es_ia`) son largas y traen saltos de línea.
-- `Consulta`: `{id, pregunta, respuesta, fuente, modelo_ia, desde_cache,
+- `Consulta`: `{id, modulo, pregunta, respuesta, fuente, modelo_ia,
+  desde_cache, tiempo_respuesta_ms | null, caracteres_respuesta,
   carta_astral_id, carta_astral: {titulo, sun_degree, moon_degree, asc_degree,
-  mc_degree} | null, contexto_astronomico, created_at}`. Sin IP ni lugar.
+  mc_degree} | null, contexto_astronomico, notas: [Nota], created_at}`. Sin IP
+  ni lugar.
+- `modulo` ∈ `oraculo | demeter | persefone | nota_ia`. Las consultas
+  anteriores a los módulos no lo guardaron y salen como `oraculo` (igual que
+  en el detalle de la web). `fuente` es el proveedor que respondió (`gemini`,
+  `groq`, `fallback`…).
 - `carta_astral` es una copia guardada con la consulta: sigue ahí aunque la
   carta se borre (entonces `carta_astral_id` es `null`).
-- `contexto_astronomico` es el de la lista blanca del oráculo, sin
-  `todas_las_casas` ni `zodiaco_completo`.
-- El historial incluye también las consultas hechas en la web (oráculo,
-  Deméter y compatibilidad), sin un campo que diga de cuál, y las respuestas
-  de reserva ya devueltas (`fuente: "fallback"`).
+- `contexto_astronomico` es la lista blanca del módulo (ver
+  [Oráculo](#oráculo)) sin `ubicacion`, `todas_las_casas` ni
+  `zodiaco_completo`. En Demeter trae `clima`, `hoy`, `pronostico` y
+  `cultivo`.
+- `Nota`: `{id, contenido, created_at}`, de la más nueva a la más vieja.
+- `POST /api/user/history/{id}/notas` `{contenido (máx. 250)}` → **201**
+  `{success, nota: Nota}`. **404** si la consulta no es suya, **422** si falta
+  o se pasa de largo. Throttle 20/min.
+- El historial incluye también las consultas hechas en la web (los tres
+  módulos) y las respuestas de reserva ya devueltas (`fuente: "fallback"`).
 
 ## Observatorio y Estudios del cielo
 
@@ -607,17 +680,28 @@ responde `404`.
 
 | Ruta | Cuerpo | Costo |
 |---|---|---|
-| `POST /api/oraculo/consultar` | `{pregunta (10 a 300), nivel_contexto?: basico \| intermedio \| premium, usa_carta_astral?, carta_astral_id?, contexto_completo?}` | 5 / **10** (por defecto) / 20 ✨, **+50** con carta astral |
-| `POST /api/oraculo/compatibilidad` | `{carta_a_id, carta_b_id, nivel_contexto?}` | 5 / **10** / 20 ✨ |
+| `POST /api/oraculo/consultar` | `{pregunta (10 a 300), modulo?: oraculo \| demeter, proveedor?, nivel_contexto?: basico \| intermedio \| premium, usa_carta_astral?, carta_astral_id?, contexto_completo?}` | 5 / **10** (por defecto) / 20 ✨, **+50** con carta astral (solo en el Oráculo) |
+| `POST /api/oraculo/compatibilidad` | `{carta_a_id, carta_b_id, nivel_contexto?, proveedor?}` | 5 / **10** / 20 ✨ |
 
 ```json
-200 { "success": true, "response": "…", "from_cache": false, "nuevo_balance": 990 }
+200 { "success": true, "response": "…", "from_cache": false, "nuevo_balance": 990,
+      "proveedor": "gemini", "proveedor_etiqueta": "Gemini · Google 2.5 Flash" }
 403 { "success": false, "error": "No tienes suficiente Polvo Estelar (10 requeridos)…",
       "insufficient_coins": true, "current_balance": 4, "required_coins": 10 }
 ```
 
+- Es la misma lógica que la consola web (`/consultas`): mismo costo, mismo
+  cobro y misma IA. `consultar` atiende **Demeter** (`modulo: "demeter"`) y el
+  **Oráculo** (por defecto); `compatibilidad` es **Perséfone**.
+- `proveedor`: una `clave` de `proveedores` del
+  [catálogo](#consultas). Si no llega o no se conoce, responde la de por
+  defecto (no da 422). Un proveedor sin configurar responde
+  `{success: false, error}` y devuelve el polvo. La respuesta dice cuál
+  respondió en `proveedor` y `proveedor_etiqueta`. El costo es el mismo con
+  cualquiera.
 - `carta_astral_id` es obligatorio con `usa_carta_astral: true`. Sin
   `usa_carta_astral` (o con `false`), la carta se ignora y no se cobran los 50.
+  En Demeter la carta se ignora siempre (no viaja ni se cobra).
 - El polvo se cobra **antes** de llamar a la IA, también cuando la respuesta
   sale de la caché (`from_cache: true`). Si la IA falla o responde con un texto
   de reserva (`fallback: true`), se devuelve solo, y `nuevo_balance` ya lo
@@ -639,6 +723,50 @@ responde `404`.
   `todas_las_casas` y `zodiaco_completo` (máx. 12 cada uno). Los textos se
   cortan a 20-40 caracteres y pierden los saltos de línea. Lo demás se descarta.
   **No mandar coordenadas.**
+- En Demeter la lista blanca es otra: `ubicacion` (nombre del lugar, máx. 60),
+  `hemisferio`, `estacion`, `luna {fase, iluminacion, creciente}`,
+  `clima {descripcion, temperatura, humedad, nubosidad, viento, lluvia_ahora,
+  presion}`, `hoy {max, min, prob_lluvia, uv}`, `pronostico` (máx. 7 de
+  `{dia, min, max, prob_lluvia, lluvia_mm}`) y `cultivo` (máx. 60).
+- Lo más simple: mandar tal cual `contexto_demeter` o `contexto_oraculo` de
+  [`GET /api/consultas/contexto`](#consultas), y en Demeter añadirle
+  `cultivo` si el usuario eligió uno.
+
+## Consultas
+
+Lo que la consola de la app necesita para armarse igual que la web, sin
+preguntas, cultivos ni costos escritos en la app.
+
+| Ruta | Respuesta |
+|---|---|
+| `GET /api/consultas/catalogo` | `{success, preguntas: {oraculo: [Grupo], demeter: [Grupo]}, cultivos: [string], proveedores: {consulta: [Proveedor], compatibilidad: [Proveedor]}, por_defecto: {consulta, compatibilidad}, niveles: {demeter: [Nivel], oraculo: [Nivel], persefone: [Nivel]}, nivel_por_defecto: "basico", costo_firmamento: 50, tokens_firmamento: 200}` |
+| `GET /api/consultas/contexto?lat&lon` | `{success, lugar, fecha, hora, franja_demeter: [Casilla], franja_oraculo: [Casilla], contexto_demeter, contexto_oraculo}`. Throttle 30/min |
+
+- `Grupo`: `{icono, titulo, preguntas: [string]}`. La pregunta se manda tal
+  cual en `pregunta`.
+- `Proveedor`: `{clave, etiqueta, disponible}`. Los que tienen
+  `disponible: false` no tienen credenciales en el servidor: se muestran
+  deshabilitados («· no configurada»), no se ocultan.
+- `Nivel`: `{clave: basico | intermedio | premium, nombre, costo, tokens,
+  descripcion}`. Los nombres cambian por módulo (Demeter: Básico, Agronómico,
+  Completo; Oráculo y Perséfone: Básico, Astral, Divino), las claves no.
+- Tokens estimados, como en la web: `tokens del nivel + ⌈largo de la
+  pregunta / 4⌉`, `+ tokens_firmamento` si el Oráculo usa un firmamento.
+- El catálogo no cambia durante la sesión: se puede guardar en memoria.
+- `contexto`: `lat` y `lon` son opcionales, pero van juntos (uno solo da 422,
+  igual que fuera de rango). Sin ellos se usa la ubicación predeterminada de
+  la web. El servidor los redondea a 2 decimales, solo los usa para calcular,
+  no los guarda ni los escribe en el log, y **no salen en la respuesta**.
+- `lugar` es el nombre del lugar (puede traer acentos); `fecha` (`"05 Nov
+  2026"`) y `hora` (`"HH:MM"`) son la hora de Chile, igual que en la web.
+- `Casilla`: `{rotulo, valor}` en `franja_demeter` (Cielo con icono,
+  Temperatura, Humedad, Viento y Lluvia hoy, ya formateados, `"—"` si falta
+  el dato). En `franja_oraculo` (Sol, Luna, Nodo Norte, Nodo Sur, Medio
+  Cielo) suma `nota` (el grado, `"12° 03′"`) y `color` (del signo, `"#rrggbb"`),
+  ambos `null` si falta el dato. `franja_oraculo` puede venir vacía si el
+  cálculo falla.
+- `contexto_demeter` y `contexto_oraculo` ya pasaron la lista blanca:
+  mandarlos como `contexto_completo`.
 
 ## Rutas antiguas (solo la app publicada)
 

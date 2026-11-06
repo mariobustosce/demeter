@@ -58,6 +58,9 @@ dependencies:
   # Directo solo para consumir y consultar compras en Play; es la versión que
   # ya traía in_app_purchase.
   in_app_purchase_android: 0.5.0
+  # Directo para terminar y recuperar transacciones de StoreKit 2; misma
+  # versión que trae in_app_purchase.
+  in_app_purchase_storekit: 0.4.15
   share_plus: ^13.3.1
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
